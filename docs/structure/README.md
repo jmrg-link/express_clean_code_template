@@ -237,7 +237,7 @@ stateDiagram-v2
 
 - Docker Compose detail: [`docs/docker/`](../docker/)
 - AWS infrastructure: [`docs/aws/`](../aws/)
-- Keycloak setup: [`docs/firebase/`](../firebase/)
+- Keycloak setup: [`docs/gcp/firebase/`](../gcp/firebase/)
 - API endpoints: [`docs/api/reference.md`](../api/reference.md)
-- Full infra docs: [`docs/project/adapters.md`](.../project/adapters.md)
-- Traefik overview: [`.firecrawl/traefik-3.7-overview.md`](../../.firecrawl/traefik-3.7-overview.md)
+- Full infra docs: [`docs/project/adapters.md`](../project/adapters.md)
+- Traefik overview: Traefik 3.7 docs oficiales

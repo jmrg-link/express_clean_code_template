@@ -436,7 +436,7 @@ docker-compose exec mongodb mongorestore /tmp/mongo-dump-20250510_020000
 
 - [`docker-compose.yml`](../../docker-compose.yml) — configuración completa
 - [`README.md`](./README.md) — visión general
-- [`docs/aws/ec2.md`](../../aws/ec2.md) — setup EC2
+- [`docs/aws/ec2.md`](../aws/ec2.md) — setup EC2
 - [AWS Secrets Manager docs](https://docs.aws.amazon.com/secretsmanager/)
 - [Let's Encrypt rate limits](https://letsencrypt.org/docs/rate-limits/)
 - [Traefik ACME docs](https://doc.traefik.io/traefik/https/acme/)

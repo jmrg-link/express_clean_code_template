@@ -37,8 +37,8 @@ Without this, frontend and mobile integrations are guesswork.
 |---|---|
 | [`README.md`](./README.md) | Este barrel (visión general) |
 | [`reference.md`](./reference.md) | Tabla completa de endpoints + schemas |
-| [flat: `reference.md`](../.reference.md) | Documentación detallada (legacy) |
-| [flat: `../project/adapters.md`](../.../project/adapters.md) | Integración Keycloak, JWT, validación |
+| [`reference.md`](./reference.md) | Documentación detallada (legacy) |
+| [`../project/adapters.md`](../project/adapters.md) | Integración Keycloak, JWT, validación |
 
 ## Quick start
 
@@ -355,6 +355,6 @@ Se generan en tiempo de build (`npm run build`):
 
 - Spec OpenAPI: `/api/v1/spec` (machine-readable)
 - Docs interactivos: `/api/v1/docs` (Swagger UI)
-- Legacy flat docs: [`reference.md`](../.reference.md)
+- Legacy flat docs: [`reference.md`](./reference.md)
 - Swagger config: `src/presentation/swagger/config.ts`
 - Routers: `src/presentation/routers/`

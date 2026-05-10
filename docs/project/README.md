@@ -77,7 +77,7 @@ AWS SDK v3 S3 (object storage)
 - [`docs/project/foundations.md`](./foundations.md) — stack, glosario, prerequisites
 - [`docs/project/architecture.md`](./architecture.md) — Hexagonal deep-dive, patrones GoF
 - [`docs/project/features.md`](./features.md) — auth, user, storage, audit features
-- [`docs/api/reference.md`](.../api/reference.md) — endpoints, schemas, error codes
+- [`docs/api/reference.md`](../api/reference.md) — endpoints, schemas, error codes
 - [`docs/project/adapters.md`](./adapters.md) — adapters (Mongo, Keycloak, S3, Winston)
 - [`docs/project/testing/strategy.md`](./testing/strategy.md) — vitest setup, helpers, matriz de cobertura
 - [`docs/project/contributing.md`](./contributing.md) — code standards, PR checklist
@@ -194,4 +194,4 @@ stateDiagram-v2
 - Flat docs: [`docs/project/foundations.md`](./foundations.md) (stack, glosario)
 - Flat docs: [`docs/project/architecture.md`](./architecture.md) (hexagonal, patrones)
 - Flat docs: [`docs/project/contributing.md`](./contributing.md) (code standards legacy)
-- Research: [`.firecrawl/conventional-commits.md`](../../.firecrawl/conventional-commits.md) (especificación CC 1.0.0)
+- Research: Conventional Commits 1.0.0 (especificación CC 1.0.0)

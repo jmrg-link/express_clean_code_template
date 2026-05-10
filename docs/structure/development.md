@@ -218,7 +218,7 @@ volumes:
 0 2 * * * /home/ec2-user/backup-mongo.sh
 ```
 
-**Referencia:** [`.firecrawl/mongodb-ec2-docker.md`](../../.firecrawl/mongodb-ec2-docker.md)
+**Referencia:** guía MongoDB en EC2
 
 ## Monitoreo en Staging
 
@@ -296,4 +296,4 @@ docker exec mongo-staging mongosh --eval "db.loginAuditLogs.deleteMany({createdA
 - Docker compose staging profile: [`docker-compose.yml`](../../docker-compose.yml)
 - Docker detail: [`docs/docker/development.md`](../docker/development.md)
 - AWS setup: [`docs/aws/ec2.md`](../aws/ec2.md)
-- Traefik overview: [`.firecrawl/traefik-3.7-overview.md`](../../.firecrawl/traefik-3.7-overview.md)
+- Traefik overview: Traefik 3.7 docs oficiales

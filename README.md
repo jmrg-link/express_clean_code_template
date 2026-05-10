@@ -82,7 +82,7 @@ flowchart LR
     class KC,Mongo,S3,Loki,Prometheus,Grafana ext
 ```
 
-Detalle del layout interno y reglas de dependencia en [`docs/00-estructura-src.md`](./docs/00-estructura-src.md).
+Detalle del layout interno y reglas de dependencia en [`docs/project/source-structure.md`](./docs/project/source-structure.md).
 
 ---
 
@@ -171,7 +171,7 @@ pnpm dev
 | `GET` | `/health/ready` | público | — |
 | `GET` | `/metrics` | LAN-only | — |
 
-Schemas Zod, request/response shapes y error chain completo en [`docs/04-api-reference.md`](./docs/04-api-reference.md).
+Schemas Zod, request/response shapes y error chain completo en [`docs/api/reference.md`](./docs/api/reference.md).
 
 ---
 
@@ -263,7 +263,7 @@ curl 'https://api.localhost/api/v1/storage/signed-url?key=public/avatar.png&ttl=
 | DDD | **Use Case por archivo** | `application/<feature>/use-cases/*.use-case.ts` |
 | DDD | **Repository CQRS-lite** | `UserQueryRepository` + `UserCommandRepository` |
 
-Trade-offs y justificaciones en [`docs/02-arquitectura.md`](./docs/02-arquitectura.md).
+Trade-offs y justificaciones en [`docs/project/architecture.md`](./docs/project/architecture.md).
 
 ---
 
@@ -287,7 +287,7 @@ Trade-offs y justificaciones en [`docs/02-arquitectura.md`](./docs/02-arquitectu
 └── .env.example
 ```
 
-Layout completo con descripción inline en [`docs/00-estructura-src.md`](./docs/00-estructura-src.md).
+Layout completo con descripción inline en [`docs/project/source-structure.md`](./docs/project/source-structure.md).
 
 ---
 
@@ -297,19 +297,19 @@ La documentación técnica completa vive en [`docs/`](./docs/) — 14 capítulos
 
 | # | Capítulo | Tema |
 |---|---|---|
-| 00 | [Estructura `src/`](./docs/00-estructura-src.md) | Layout, capas, naming, path aliases |
-| 01 | [Fundamentos](./docs/01-fundamentos.md) | Stack, glosario, prerequisitos |
-| 02 | [Arquitectura](./docs/02-arquitectura.md) | Hexagonal, CQRS-lite, patrones |
-| 03 | [Features](./docs/03-features.md) | auth, user, storage, audit |
-| 04 | [API Reference](./docs/04-api-reference.md) | Endpoints, schemas, errores |
-| 05 | [Infraestructura](./docs/05-infraestructura.md) | Adapters Mongo/Keycloak/S3 |
-| 06 | [Plataforma + Deploy](./docs/06-plataforma-deploy.md) | Compose, Traefik, ACME |
-| 07 | [Seguridad](./docs/07-seguridad.md) | Cadena auth, hardening |
-| 08 | [Configuración](./docs/08-configuracion.md) | Env Zod, perfiles, secrets |
-| 09 | [Observabilidad](./docs/09-observabilidad.md) | Logs, métricas, dashboards |
-| 10 | [Testing](./docs/10-testing.md) | Vitest, helpers, cobertura |
-| 11 | [Operación](./docs/11-operacion.md) | Quick start, healthchecks, runbook |
-| 12 | [Onboarding + Contribución](./docs/12-onboarding-contribucion.md) | Code standards, PR checklist |
+| 00 | [Estructura `src/`](./docs/project/source-structure.md) | Layout, capas, naming, path aliases |
+| 01 | [Fundamentos](./docs/project/foundations.md) | Stack, glosario, prerequisitos |
+| 02 | [Arquitectura](./docs/project/architecture.md) | Hexagonal, CQRS-lite, patrones |
+| 03 | [Features](./docs/project/features.md) | auth, user, storage, audit |
+| 04 | [API Reference](./docs/api/reference.md) | Endpoints, schemas, errores |
+| 05 | [Infraestructura](./docs/project/adapters.md) | Adapters Mongo/Keycloak/S3 |
+| 06 | [Plataforma + Deploy](./docs/docker/platform.md) | Compose, Traefik, ACME |
+| 07 | [Seguridad](./docs/project/security.md) | Cadena auth, hardening |
+| 08 | [Configuración](./docs/project/configuration.md) | Env Zod, perfiles, secrets |
+| 09 | [Observabilidad](./docs/aws/observability.md) | Logs, métricas, dashboards |
+| 10 | [Testing](./docs/project/testing/strategy.md) | Vitest, helpers, cobertura |
+| 11 | [Operación](./docs/structure/operations.md) | Quick start, healthchecks, runbook |
+| 12 | [Onboarding + Contribución](./docs/project/contributing.md) | Code standards, PR checklist |
 
 ---
 
@@ -331,7 +331,7 @@ docker compose --env-file .env.production up -d
 
 > Si pruebas primero contra el endpoint staging de Let's Encrypt, borra `data/traefik/acme/acme.json` antes de pasar a producción para evitar mezclar certs.
 
-Detalle de despliegue por entorno en [`docs/11-operacion.md`](./docs/11-operacion.md).
+Detalle de despliegue por entorno en [`docs/structure/operations.md`](./docs/structure/operations.md).
 
 ---
 
@@ -351,7 +351,7 @@ Keycloak firma tokens con el host de `KC_HOSTNAME`. `KC_HOSTNAME=https://auth.${
 **`auth.localhost` falla en handshake TLS**
 Es normal en local: el cert auto-firmado lo rechaza el navegador. Aceptar la advertencia. La API dentro de la red Docker usa `KEYCLOAK_INTERNAL_URL=http://keycloak:8080` para no pasar por Traefik.
 
-Más casos en [`docs/11-operacion.md#troubleshooting`](./docs/11-operacion.md).
+Más casos en [`docs/structure/operations.md#troubleshooting`](./docs/structure/operations.md).
 
 ---
 
@@ -389,7 +389,7 @@ git push origin feat/nueva-funcionalidad
 - **Sin comentarios inline**: solo bloques JSDoc/TSDoc.
 - **Tests** obligatorios: integration para endpoints nuevos, unit para use cases con lógica condicional.
 
-Code standards completos, code review checklist y workflow detallado en [`docs/12-onboarding-contribucion.md`](./docs/12-onboarding-contribucion.md).
+Code standards completos, code review checklist y workflow detallado en [`docs/project/contributing.md`](./docs/project/contributing.md).
 
 ---
 

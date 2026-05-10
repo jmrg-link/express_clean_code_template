@@ -338,4 +338,4 @@ dev runs: git commit → pre-commit (lint-staged) → commit-msg (commitlint) �
 - [lint-staged docs](https://github.com/lint-staged/lint-staged)
 - [commitlint docs](https://commitlint.js.org/)
 - [`docs/ci-cd/README.md`](./README.md) — overview CI/CD
-- [`docs/code-standards.md`](../code-standards.md) — coding standards
+- [`docs/project/contributing.md`](../project/contributing.md) — coding standards

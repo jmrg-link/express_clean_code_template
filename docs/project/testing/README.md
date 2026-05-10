@@ -415,4 +415,4 @@ if (!token) {
 - Vitest docs: https://vitest.dev/
 - Supertest docs: https://github.com/visionmedia/supertest
 - mongodb-memory-server: https://github.com/typegoose/mongodb-memory-server
-- Flat testing docs: [`docs/project/testing/strategy.md`](../.strategy.md)
+- Flat testing docs: [`strategy.md`](./strategy.md)

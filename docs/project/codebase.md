@@ -413,5 +413,5 @@ config + main
 
 - Full architecture: [`docs/project/architecture.md`](./architecture.md)
 - Infrastructure detail: [`docs/project/adapters.md`](./adapters.md)
-- API reference: [`docs/api/reference.md`](.../api/reference.md)
+- API reference: [`docs/api/reference.md`](../api/reference.md)
 - Testing strategy: [`testing/README.md`](./testing/README.md)

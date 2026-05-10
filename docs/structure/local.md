@@ -422,5 +422,5 @@ docker logs express-clean-backend-keycloak-1 | tail -100
 
 - docker-compose config: [`docker-compose.yml`](../../docker-compose.yml)
 - Docker detail: [`docs/docker/local.md`](../docker/local.md)
-- Full infra docs: [`docs/project/adapters.md`](.../project/adapters.md)
-- Keycloak setup: [`docs/firebase/auth.md`](../firebase/auth.md)
+- Full infra docs: [`docs/project/adapters.md`](../project/adapters.md)
+- Keycloak setup: [`docs/gcp/firebase/auth.md`](../gcp/firebase/auth.md)

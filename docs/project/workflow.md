@@ -418,6 +418,6 @@ npm test
 
 ## Referencias
 
-- Conventional Commits: [`.firecrawl/conventional-commits.md`](../../.firecrawl/conventional-commits.md)
+- Conventional Commits: Conventional Commits 1.0.0
 - Code Standards: [`.claude/rules/jsdoc-tsdoc.md`](../../.claude/rules/jsdoc-tsdoc.md)
 - Full docs: [`docs/project/contributing.md`](./contributing.md)

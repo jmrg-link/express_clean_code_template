@@ -198,5 +198,5 @@ Merge bloqueado si alguno falla (branch protection rule).
 ## Links relacionados
 
 - [`docs/project/workflow.md`](../project/workflow.md)
-- [`.github/workflows/`](../../.github/workflows/)
+- `.github/workflows/`
 - AWS OIDC: [`docs/aws/iam.md`](../aws/iam.md)
