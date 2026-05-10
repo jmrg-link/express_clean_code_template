@@ -122,7 +122,7 @@ services:
       - "--entrypoints.websecure.http.tls=true"
       - "--entrypoints.websecure.http.tls.certresolver=le"
       - "--entrypoints.metrics.address=:8082"
-      - "--certificatesresolvers.le.acme.email=${SSL_EMAIL:-info@example.com}"
+      - "--certificatesresolvers.le.acme.email=${SSL_EMAIL:?SSL_EMAIL is required for Let's Encrypt}"
       - "--certificatesresolvers.le.acme.storage=/etc/traefik/acme/acme.json"
       - "--certificatesresolvers.le.acme.caserver=${LE_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}"
       - "--certificatesresolvers.le.acme.httpchallenge=true"

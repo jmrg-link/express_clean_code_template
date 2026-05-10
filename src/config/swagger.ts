@@ -9,7 +9,7 @@ const options: swaggerJsdoc.Options = {
       version: '2.0.0',
       description:
         'API REST con Hexagonal DDD, Keycloak (jose), CQRS-lite repositories, Facade per feature.',
-      contact: { name: 'JMRG', url: 'https://www.jmrg.dev' },
+      contact: { name: 'API Maintainer', url: 'https://example.com' },
       license: { name: 'MIT' },
     },
     servers: [

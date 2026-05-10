@@ -407,8 +407,10 @@ sequenceDiagram
 
 `app-realm.json:83-104`:
 
-- `admin@app.local` / `change-me-on-first-boot` → rol `admin`.
-- `operator@app.local` / `change-me-on-first-boot` → rol `operator`.
+- `admin@app.local` / `<bootstrap-password>` → rol `admin`.
+- `operator@app.local` / `<bootstrap-password>` → rol `operator`.
+
+> Las contraseñas reales se definen en `.env.local` y deben rotarse en el primer arranque. Nunca usar valores por defecto en staging/prod.
 
 En staging/prod: NO usar estos. Crear users via API
 (`KeycloakAdapter.registerUser`).
