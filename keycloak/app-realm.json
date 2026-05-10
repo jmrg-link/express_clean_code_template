@@ -1,0 +1,156 @@
+{
+  "realm": "app",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 900,
+  "refreshTokenMaxReuse": 0,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      {
+        "name": "buyer",
+        "description": "Default role for newly registered users"
+      },
+      {
+        "name": "seller",
+        "description": "Can publish and manage own listings"
+      },
+      {
+        "name": "operator",
+        "description": "Internal operator: manages listings and transactions"
+      },
+      {
+        "name": "admin",
+        "description": "Full platform access"
+      }
+    ]
+  },
+  "defaultRoles": [
+    "buyer"
+  ],
+  "clients": [
+    {
+      "clientId": "app-api",
+      "name": "Backend API (Express)",
+      "description": "Cliente confidential para la API: client_credentials + admin SDK",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "dev-only-rotate-with-scripts/rotate-keycloak-secrets.sh",
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "serviceAccountsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "https://api.localhost/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "access.token.lifespan": "900"
+      }
+    },
+    {
+      "clientId": "app-frontend",
+      "name": "Frontend SPA",
+      "description": "Cliente public para SPAs (Authorization Code + PKCE)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": true,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:3000/*",
+        "https://app.localhost/*"
+      ],
+      "webOrigins": [
+        "+"
+      ]
+    },
+    {
+      "clientId": "traefik-panels",
+      "name": "Traefik OIDC plugin (paneles humanos)",
+      "description": "Cliente para el plugin sevensolutions/traefik-oidc-auth. Protege Grafana, Prometheus y el dashboard de Traefik. NO se usa desde la API — solo browser-flow.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "dev-only-rotate-with-scripts/rotate-keycloak-secrets.sh",
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "https://api.traefik.localhost/oidc/callback",
+        "https://api.grafana.localhost/oidc/callback",
+        "https://api.prometheus.localhost/oidc/callback"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@app.local",
+      "email": "admin@app.local",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "__CHANGE_ME_VIA_rotate-keycloak-secrets.sh__",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin"
+      ]
+    },
+    {
+      "username": "operator@app.local",
+      "email": "operator@app.local",
+      "firstName": "Op",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "__CHANGE_ME_VIA_rotate-keycloak-secrets.sh__",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "operator"
+      ]
+    },
+    {
+      "username": "service-account-app-api",
+      "enabled": true,
+      "serviceAccountClientId": "app-api",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users",
+          "view-realm"
+        ]
+      }
+    }
+  ]
+}

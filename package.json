@@ -1,0 +1,106 @@
+{
+  "name": "express-clean-backend",
+  "version": "4.0.0",
+  "description": "Express + TypeScript Hexagonal DDD with Keycloak (jose), CQRS-lite, Facade per feature, Observer audit, S3 storage, Winston/Loki logging. v4 adds Traefik 3.7 + OIDC plugin + observability stack.",
+  "type": "module",
+  "main": "dist/main.js",
+  "imports": {
+    "#domain/shared/errors": {
+      "development": "./src/domain/shared/errors/index.ts",
+      "default": "./dist/domain/shared/errors/index.js"
+    },
+    "#config/*": {
+      "development": "./src/config/*.ts",
+      "default": "./dist/config/*.js"
+    },
+    "#domain/*": {
+      "development": "./src/domain/*.ts",
+      "default": "./dist/domain/*.js"
+    },
+    "#application/*": {
+      "development": "./src/application/*.ts",
+      "default": "./dist/application/*.js"
+    },
+    "#infrastructure/*": {
+      "development": "./src/infrastructure/*.ts",
+      "default": "./dist/infrastructure/*.js"
+    },
+    "#presentation/*": {
+      "development": "./src/presentation/*.ts",
+      "default": "./dist/presentation/*.js"
+    }
+  },
+  "scripts": {
+    "dev": "cross-env NODE_ENV=local dotenv -e .env.local -- tsx watch src/main.ts",
+    "dev:local": "cross-env NODE_ENV=local dotenv -e .env.local -- tsx watch src/main.ts",
+    "dev:staging": "cross-env NODE_ENV=staging dotenv -e .env.staging -- tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "cross-env NODE_ENV=production dotenv -e .env.production -- node dist/main.js",
+    "start:staging": "cross-env NODE_ENV=staging dotenv -e .env.staging -- node dist/main.js",
+    "start:prod": "cross-env NODE_ENV=production dotenv -e .env.production -- node dist/main.js",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "express",
+    "typescript",
+    "hexagonal",
+    "ddd",
+    "keycloak",
+    "mongoose",
+    "jose",
+    "s3",
+    "winston",
+    "loki",
+    "observer",
+    "facade"
+  ],
+  "author": "JMRG",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.654.0",
+    "@aws-sdk/s3-request-presigner": "3.654.0",
+    "colors": "1.4.0",
+    "cors": "2.8.5",
+    "cross-env": "10.1.0",
+    "dotenv": "^17.2.4",
+    "dotenv-cli": "8.0.0",
+    "express": "5.2.1",
+    "express-rate-limit": "7.4.0",
+    "helmet": "8.1.0",
+    "jose": "6.1.3",
+    "mongoose": "9.2.0",
+    "morgan": "1.10.0",
+    "prom-client": "^15.1.3",
+    "slugify": "1.6.6",
+    "swagger-jsdoc": "6.2.8",
+    "swagger-ui-express": "5.0.1",
+    "winston": "3.19.0",
+    "winston-loki": "6.1.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.17",
+    "@types/express": "5.0.0",
+    "@types/morgan": "1.9.9",
+    "@types/node": "22.5.0",
+    "@types/supertest": "6.0.2",
+    "@types/swagger-jsdoc": "6.0.4",
+    "@types/swagger-ui-express": "4.1.6",
+    "@vitest/coverage-v8": "4.0.18",
+    "mongodb-memory-server": "11.0.1",
+    "supertest": "7.2.2",
+    "tsx": "4.19.0",
+    "typescript": "5.5.4",
+    "vitest": "4.0.18"
+  }
+}

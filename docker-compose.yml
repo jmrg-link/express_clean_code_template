@@ -1,0 +1,532 @@
+# =============================================================================
+# express-clean-backend
+#
+# Stack:
+#   Traefik 3.7.0-ea.1   reverse proxy + ACME + plugin OIDC
+#   Keycloak 26.6.1      IAM detrás de Traefik en auth.${DOMAIN}
+#   MongoDB 8.2          base de datos principal
+#   LocalStack 4.14.0    S3 emulado, perfil dev
+#   API Express          servicio Node.js v22
+#   Loki 3.7.1           agregación de logs, perfil observability
+#   Grafana 13.0.1       dashboards, perfil observability
+#   Prometheus 3.8.1     métricas, perfil observability
+#
+# Convenciones:
+#   Redes:        proxy (público), backend (interno), monitoring (telemetría)
+#   Hostnames:    api.${DOMAIN}, auth.${DOMAIN}, api.traefik.${DOMAIN}, …
+#   Default:      DOMAIN=localhost  (los navegadores resuelven *.localhost a 127.0.0.1)
+#   Volúmenes:    ./data/<svc> y ./logs/<svc>
+#   Perfiles:     dev (LocalStack), observability (Loki+Grafana+Prometheus)
+#
+# Auth para paneles humanos (Grafana, Prometheus, Traefik dashboard):
+#   Plugin OIDC sevensolutions/traefik-oidc-auth v0.19.0
+#   Cliente Keycloak: traefik-panels (Authorization Code + PKCE)
+#   Solo usuarios con rol admin u operator pueden acceder
+#
+# Pre-requisitos antes del primer arranque:
+#   1. Generar secrets:    ./scripts/generate-secrets.sh
+#   2. Inicializar ACME:   ./scripts/init-acme.sh
+#   3. Variables en .env:  OIDC_PLUGIN_SECRET, KC_PANELS_SECRET, KC_API_SECRET,
+#                          KC_ADMIN_PASSWORD, TRAEFIK_AUTH (htpasswd hash)
+# =============================================================================
+
+name: "express-clean-backend"
+
+# -----------------------------------------------------------------------------
+# Networks
+#   proxy:      Traefik <-> servicios públicos (api, auth, paneles)
+#   backend:    servicios internos (mongo, localstack) + api
+#   monitoring: stack de observability + api (la api expone /metrics)
+# -----------------------------------------------------------------------------
+networks:
+  proxy:
+    name: proxy
+  backend:
+    name: backend
+  monitoring:
+    name: monitoring
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # traefik
+  #
+  # Reverse proxy con TLS (ACME), HTTP/3 y plugin OIDC para paneles humanos.
+  #
+  # Puertos expuestos:
+  #   80   HTTP (redirige a HTTPS vía middleware permanente)
+  #   443  HTTPS + HTTP/3 (QUIC) en UDP
+  #   8082 entrypoint interno de métricas + ping (no expuesto, vive en monitoring)
+  #
+  # Volúmenes:
+  #   /var/run/docker.sock       provider Docker (read-only)
+  #   ./data/traefik/acme        storage ACME (acme.json con chmod 600)
+  #   ./logs/traefik             traefik.log y access.log en JSON
+  #
+  # ACME / Let's Encrypt:
+  #   Resolver `le` con HTTP-01 challenge en entrypoint web.
+  #   LE_CA_SERVER permite alternar entre prod y staging:
+  #     prod:    https://acme-v02.api.letsencrypt.org/directory
+  #     staging: https://acme-staging-v02.api.letsencrypt.org/directory
+  #   acme.json DEBE existir con permisos 600 antes del primer arranque.
+  #   Recreación: touch data/traefik/acme/acme.json && chmod 600 data/traefik/acme/acme.json
+  #
+  # Middlewares globales declarados aquí y referenciados por nombre desde otros services:
+  #   security-headers    HSTS, nosniff, XSS filter, frame deny, referrer policy
+  #   ratelimit-api       100 req/min/IP, burst 200, periodo 1m (solo api.${DOMAIN})
+  #   cors-api            CORS whitelist con allowlist explícita
+  #   compress            gzip/brotli automático
+  #   lan-only            ipallowlist RFC1918 + loopback (defensa para paneles)
+  #   basicauth-traefik   second factor sobre el dashboard tras OIDC
+  #   kc-auth             plugin OIDC contra realm `app`, cliente `traefik-panels`,
+  #                       requiere claim realm_access.roles ∈ {admin, operator}
+  #   chain-admin-panel   composición lan-only + kc-auth + security-headers + compress
+  #
+  # Routers:
+  #   traefik-dashboard   api.traefik.${DOMAIN}, protegido por chain-admin-panel + basicauth
+  # ---------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.7.0-ea.1
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    networks:
+      - proxy
+      - monitoring
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data/traefik/acme:/etc/traefik/acme
+      - ./logs/traefik:/var/log/traefik
+    environment:
+      OIDC_PLUGIN_SECRET: ${OIDC_PLUGIN_SECRET:?OIDC_PLUGIN_SECRET is required}
+      KC_PANELS_SECRET: ${KC_PANELS_SECRET:?KC_PANELS_SECRET is required}
+    command:
+      - "--api=true"
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=proxy"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http3=true"
+      - "--entrypoints.websecure.http3.advertisedport=443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certresolver=le"
+      - "--entrypoints.metrics.address=:8082"
+      - "--certificatesresolvers.le.acme.email=${SSL_EMAIL:-info@example.com}"
+      - "--certificatesresolvers.le.acme.storage=/etc/traefik/acme/acme.json"
+      - "--certificatesresolvers.le.acme.caserver=${LE_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}"
+      - "--certificatesresolvers.le.acme.httpchallenge=true"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      - "--experimental.plugins.traefik-oidc-auth.modulename=github.com/sevensolutions/traefik-oidc-auth"
+      - "--experimental.plugins.traefik-oidc-auth.version=v0.19.0"
+      - "--log.level=INFO"
+      - "--log.filepath=/var/log/traefik/traefik.log"
+      - "--log.format=json"
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+      - "--accesslog.format=json"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.entrypoint=metrics"
+      - "--metrics.prometheus.addrouterslabels=true"
+      - "--metrics.prometheus.addserviceslabels=true"
+      - "--ping=true"
+      - "--ping.entrypoint=metrics"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.security-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.security-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.security-headers.headers.customFrameOptionsValue=SAMEORIGIN"
+      - "traefik.http.middlewares.ratelimit-api.ratelimit.average=100"
+      - "traefik.http.middlewares.ratelimit-api.ratelimit.burst=200"
+      - "traefik.http.middlewares.ratelimit-api.ratelimit.period=1m"
+      - "traefik.http.middlewares.cors-api.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS"
+      - "traefik.http.middlewares.cors-api.headers.accesscontrolallowheaders=Content-Type,Authorization,X-Request-Id"
+      - "traefik.http.middlewares.cors-api.headers.accesscontrolexposeheaders=X-Request-Id"
+      - "traefik.http.middlewares.cors-api.headers.accesscontrolalloworiginlist=${CORS_ORIGINS:-https://app.${DOMAIN:-localhost}}"
+      - "traefik.http.middlewares.cors-api.headers.accesscontrolmaxage=86400"
+      - "traefik.http.middlewares.cors-api.headers.addvaryheader=true"
+      - "traefik.http.middlewares.compress.compress=true"
+      - "traefik.http.middlewares.lan-only.ipallowlist.sourcerange=127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      - "traefik.http.middlewares.basicauth-traefik.basicauth.users=${TRAEFIK_AUTH:-admin:$$apr1$$placeholder$$placeholder}"
+      - "traefik.http.middlewares.basicauth-traefik.basicauth.removeheader=true"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Secret=${OIDC_PLUGIN_SECRET}"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Provider.Url=https://auth.${DOMAIN:-localhost}/realms/app"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Provider.ClientId=traefik-panels"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Provider.ClientSecret=${KC_PANELS_SECRET}"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Provider.UsePkce=true"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Scopes=openid,profile,email"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Authorization.AssertClaims[0].Name=realm_access.roles"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Authorization.AssertClaims[0].AnyOf=admin,operator"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Headers[0].Name=X-Auth-User"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Headers[0].Value={{`{{.claims.preferred_username}}`}}"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Headers[1].Name=X-Auth-Email"
+      - "traefik.http.middlewares.kc-auth.plugin.traefik-oidc-auth.Headers[1].Value={{`{{.claims.email}}`}}"
+      - "traefik.http.middlewares.chain-admin-panel.chain.middlewares=lan-only,kc-auth,security-headers,compress"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`api.traefik.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
+      - "traefik.http.routers.traefik-dashboard.middlewares=chain-admin-panel,basicauth-traefik"
+
+  # ---------------------------------------------------------------------------
+  # mongodb
+  #
+  # Base de datos principal del backend.
+  #
+  # Puertos:
+  #   27017 expuesto solo a 127.0.0.1 para que `pnpm dev` (API en host) pueda
+  #         conectar sin pasar por la red Docker. Bind a loopback es seguro:
+  #         no se expone a la red externa. Si todo corre dentro del compose,
+  #         el bloque ports puede comentarse.
+  #
+  # Volumen mongo_data persiste /data/db entre arranques.
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: mongo:8.2
+    container_name: mongodb
+    restart: unless-stopped
+    networks:
+      - backend
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # keycloak
+  #
+  # IAM detrás de Traefik en auth.${DOMAIN}. Modo start-dev con import-realm.
+  #
+  # Variables de bootstrap (Keycloak 26.x):
+  #   KC_BOOTSTRAP_ADMIN_USERNAME    sustituye al deprecado KEYCLOAK_ADMIN
+  #   KC_BOOTSTRAP_ADMIN_PASSWORD    obligatorio (`:?` falla si falta)
+  #
+  # Comportamiento detrás de Traefik:
+  #   KC_PROXY_HEADERS=xforwarded     confía en X-Forwarded-* del proxy
+  #   KC_HOSTNAME                     hostname público que firma los `iss` de los tokens
+  #                                   debe coincidir con el host que ven los clientes
+  #   KC_HOSTNAME_STRICT=false        más permisivo en dev/local
+  #   KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true   resolve interno por DNS
+  #
+  # Puertos:
+  #   8080 expuesto a 127.0.0.1 para que `pnpm dev` (API en host) llegue por
+  #        http://localhost:8080 sin pasar por Traefik (evita el cert auto-firmado
+  #        en local). El plugin OIDC para humanos sigue entrando por
+  #        https://auth.localhost vía Traefik.
+  #
+  # Volúmenes:
+  #   ./keycloak/app-realm.json:/opt/keycloak/data/import/app-realm.json:ro
+  #     Realm `app` con clientes app-api (confidential) y traefik-panels (PKCE).
+  #   keycloak_data:/opt/keycloak/data
+  #     Estado interno (sesiones, etc.) entre arranques.
+  #
+  # Healthcheck: java oneliner contra http://localhost:9000/health/live (KC 26.x).
+  # ---------------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.1
+    container_name: keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?KC_ADMIN_PASSWORD is required}
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: https://auth.${DOMAIN:-localhost}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+    networks:
+      - proxy
+      - backend
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./keycloak/app-realm.json:/opt/keycloak/data/import/app-realm.json:ro
+      - keycloak_data:/opt/keycloak/data
+    healthcheck:
+      test: ['CMD-SHELL', '[ -f /tmp/HealthCheck.java ] || echo "public class HealthCheck { public static void main(String[] args) throws java.lang.Throwable { System.exit(java.net.HttpURLConnection.HTTP_OK == ((java.net.HttpURLConnection)new java.net.URL(args[0]).openConnection()).getResponseCode() ? 0 : 1); } }" > /tmp/HealthCheck.java && java /tmp/HealthCheck.java http://localhost:9000/health/live']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+      - "traefik.http.routers.keycloak.service=keycloak"
+      - "traefik.http.routers.keycloak.middlewares=security-headers,compress"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
+  # ---------------------------------------------------------------------------
+  # api
+  #
+  # Backend Express 5 + TypeScript. Build local desde ./Dockerfile.
+  #
+  # Estrategia de auth:
+  #   La API verifica sus propios JWT con jose y JWKS de Keycloak.
+  #   Sin auth en Traefik para api.${DOMAIN}: solo middleware HTTP layer
+  #   (rate-limit, CORS, security headers, compress).
+  #
+  # Variables clave:
+  #   KEYCLOAK_URL              URL interna o pública del IDP. En local apunta
+  #                             a http://keycloak:8080 (red proxy). En staging/prod
+  #                             cambiar a la URL pública via .env.
+  #   KEYCLOAK_CLIENT_SECRET    secret del cliente confidential `app-api`
+  #                             para client_credentials y admin SDK.
+  #   AWS_S3_ENDPOINT           hardcoded a http://localstack:4566 dentro del
+  #                             compose (DNS interno). Para `pnpm dev:local`
+  #                             fuera de Docker se sobrescribe en .env.local
+  #                             a http://localhost:4566.
+  #   LOKI_HOST                 vacío deshabilita el transporte Winston-Loki.
+  #
+  # Networks:
+  #   proxy        para Traefik
+  #   backend      para mongodb
+  #   monitoring   para que Prometheus scrapee /metrics
+  #
+  # Routers Traefik:
+  #   api  Host=api.${DOMAIN}, middlewares: security-headers, ratelimit-api, cors-api, compress
+  # ---------------------------------------------------------------------------
+  api:
+    build: .
+    container_name: api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      HOST: 0.0.0.0
+      PORT: 3000
+      API_PREFIX: /api
+      API_VERSION: v1
+      KEYCLOAK_URL: ${KEYCLOAK_INTERNAL_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: app
+      KEYCLOAK_CLIENT_ID: app-api
+      KEYCLOAK_CLIENT_SECRET: ${KC_API_SECRET:?KC_API_SECRET is required}
+      MONGODB_URI: mongodb://mongodb:27017/express-clean-backend
+      JWT_SECRET: ${JWT_SECRET:-fallback-only-for-dev-min-16-chars}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://app.${DOMAIN:-localhost}}
+      AWS_REGION: ${AWS_REGION:-eu-west-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-app-local-bucket}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      AWS_S3_ENDPOINT: http://localstack:4566
+      AWS_S3_FORCE_PATH_STYLE: "true"
+      LOKI_HOST: ${LOKI_HOST:-}
+    networks:
+      - proxy
+      - backend
+      - monitoring
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.api.rule=Host(`api.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.service=api"
+      - "traefik.http.routers.api.middlewares=security-headers,ratelimit-api,cors-api,compress"
+      - "traefik.http.services.api.loadbalancer.server.port=3000"
+
+  # ---------------------------------------------------------------------------
+  # localstack       (perfil dev)
+  #
+  # S3 emulado para desarrollo. Última versión free sin auth-token.
+  #
+  # Puertos:
+  #   4566 expuesto a 127.0.0.1 para que `pnpm dev` (API en host) pueda
+  #        usar S3. Dentro de la red backend, la API resuelve `localstack`
+  #        por DNS interno.
+  #
+  # Volúmenes:
+  #   localstack_data                            persistencia entre arranques
+  #   ./scripts/localstack-init.sh               crea bucket app-local-bucket
+  #     en /etc/localstack/init/ready.d/init.sh
+  # ---------------------------------------------------------------------------
+  localstack:
+    image: localstack/localstack:4.14.0
+    container_name: localstack
+    profiles: ["dev"]
+    restart: unless-stopped
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: ${AWS_REGION:-eu-west-1}
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      DEBUG: 0
+    networks:
+      - backend
+    ports:
+      - "127.0.0.1:4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # loki             (perfil observability)
+  #
+  # Agregación de logs. Recibe el transporte Winston-Loki de la API cuando
+  # el entorno define LOKI_HOST. Configuración por defecto del image.
+  # ---------------------------------------------------------------------------
+  loki:
+    image: grafana/loki:3.7.1
+    container_name: loki
+    profiles: ["observability"]
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+    volumes:
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # prometheus       (perfil observability)
+  #
+  # Scrape de métricas: API, Traefik (entrypoint :8082), KC (cuando aplique).
+  # Config en ./monitoring/prometheus.yml (read-only mount).
+  # Expuesto vía Traefik en api.prometheus.${DOMAIN} con chain-admin-panel
+  # (lan-only + kc-auth + security-headers + compress).
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v3.8.1
+    container_name: prometheus
+    profiles: ["observability"]
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.prometheus.rule=Host(`api.prometheus.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.prometheus.entrypoints=websecure"
+      - "traefik.http.routers.prometheus.tls=true"
+      - "traefik.http.routers.prometheus.middlewares=chain-admin-panel"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+
+  # ---------------------------------------------------------------------------
+  # grafana          (perfil observability)
+  #
+  # Dashboards. Login federado vía auth-proxy: Grafana confía en el header
+  # X-Auth-User que inyecta el plugin OIDC de Traefik.
+  #
+  # Auth-proxy:
+  #   GF_AUTH_PROXY_ENABLED=true
+  #   GF_AUTH_PROXY_HEADER_NAME=X-Auth-User
+  #   GF_AUTH_PROXY_HEADER_PROPERTY=username
+  #   GF_AUTH_PROXY_AUTO_SIGN_UP=true     usuarios nuevos se crean en Grafana
+  #   GF_AUTH_PROXY_HEADERS=Email:X-Auth-Email
+  #
+  # Variables:
+  #   GRAFANA_ADMIN_PASSWORD              password local del usuario admin
+  #   GF_SERVER_ROOT_URL / GF_SERVER_DOMAIN   coinciden con api.grafana.${DOMAIN}
+  #
+  # Volúmenes:
+  #   ./monitoring/grafana/provisioning   datasources + dashboards en arranque
+  #   ./monitoring/grafana/dashboards     JSONs de dashboards versionados
+  #   grafana_data                        SQLite, plugins, etc.
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:13.0.1
+    container_name: grafana
+    profiles: ["observability"]
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: X-Auth-User
+      GF_AUTH_PROXY_HEADER_PROPERTY: username
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+      GF_AUTH_PROXY_HEADERS: "Email:X-Auth-Email"
+      GF_SERVER_ROOT_URL: https://api.grafana.${DOMAIN:-localhost}
+      GF_SERVER_DOMAIN: api.grafana.${DOMAIN:-localhost}
+    networks:
+      - monitoring
+      - proxy
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - loki
+      - prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.grafana.rule=Host(`api.grafana.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.middlewares=kc-auth,security-headers,compress"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+# -----------------------------------------------------------------------------
+# Volumes nombrados (persistencia entre arranques)
+# -----------------------------------------------------------------------------
+volumes:
+  mongo_data:
+  keycloak_data:
+  localstack_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:
