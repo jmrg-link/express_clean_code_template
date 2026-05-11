@@ -1,4 +1,5 @@
 import type { DomainEvent } from './event-bus.port.js';
+import type { UserRole } from '../../user/user.entity.js';
 
 /**
  * Eventos del dominio relacionados con autenticación y usuarios.
@@ -31,6 +32,23 @@ export interface UserRegisteredEvent extends DomainEvent {
   readonly email: string;
 }
 
+/**
+ * Cambio de roles aplicado a un usuario por un actor admin.
+ *
+ * @remarks
+ * `before`/`after` son snapshots inmutables (cópialos antes de mutar el
+ * documento). `actorId` viaja para el audit trail; coincide con `req.user.id`
+ * (el `sub` del JWT del admin que provocó la mutación).
+ */
+export interface UserRoleChangedEvent extends DomainEvent {
+  readonly type: 'user.role_changed';
+  readonly userId: string;
+  readonly keycloakId: string;
+  readonly before: ReadonlyArray<UserRole>;
+  readonly after: ReadonlyArray<UserRole>;
+  readonly actorId: string;
+}
+
 export const UserEvents = {
   loggedIn(data: Omit<UserLoggedInEvent, 'type' | 'occurredAt'>): UserLoggedInEvent {
     return { type: 'user.logged_in', occurredAt: new Date(), ...data };
@@ -40,5 +58,8 @@ export const UserEvents = {
   },
   registered(data: Omit<UserRegisteredEvent, 'type' | 'occurredAt'>): UserRegisteredEvent {
     return { type: 'user.registered', occurredAt: new Date(), ...data };
+  },
+  roleChanged(data: Omit<UserRoleChangedEvent, 'type' | 'occurredAt'>): UserRoleChangedEvent {
+    return { type: 'user.role_changed', occurredAt: new Date(), ...data };
   },
 };

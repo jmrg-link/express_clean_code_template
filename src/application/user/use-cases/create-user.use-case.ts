@@ -32,7 +32,8 @@ export class CreateUserUseCase {
     const created = await this.commandRepo.create({
       keycloak_id: dto.keycloak_id,
       email: dto.email,
-      name: dto.name,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       slug: dto.slug,
       phone: dto.phone,
       picture: dto.picture,

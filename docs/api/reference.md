@@ -4,6 +4,13 @@
 
 ---
 
+## Breaking changes
+
+- **`POST /auth/register` body**: el campo `name` (string 2-100) se retira. Pasa a requerir `firstName` (2-50) y `lastName` (1-50). `CreateUserSchema`, `UpdateUserSchema` y `ListUserSchema` siguen el mismo cambio. Slug se deriva de `${firstName} ${lastName}`. Plan: [`plans/260511-2153-user-name-lastname-split`](../../plans/260511-2153-user-name-lastname-split/plan.md).
+- **RBAC roles management**: nuevos endpoints `/users/:id/roles` (admin only). El registro ahora aplica `ADMIN_EMAIL_PATTERNS`: emails que cumplen patrón literal o wildcard de dominio nacen con rol `admin` en KC y Mongo. Plan: [`plans/260511-2119-roles-rbac`](../../plans/260511-2119-roles-rbac/plan.md).
+
+---
+
 ## Bases del API
 
 | Item | Valor | Origen |
@@ -33,6 +40,10 @@
 | 7 | user | POST | `/api/v1/users` | Bearer | admin | `CreateUserSchema` (body) | `CreateUserUseCase` | 201 |
 | 8 | user | PUT | `/api/v1/users/:id` | Bearer | admin | `validateObjectId` + `UpdateUserSchema` | `UpdateUserUseCase` | 200 |
 | 9 | user | DELETE | `/api/v1/users/:id` | Bearer | admin | `validateObjectId` | `SoftDeleteUserUseCase` | 200 |
+| 9a | user-roles | GET | `/api/v1/users/:id/roles` | Bearer | admin | `validateObjectId` | `GetRolesUseCase` | 200 |
+| 9b | user-roles | PUT | `/api/v1/users/:id/roles` | Bearer | admin | `validateObjectId` + `ReplaceRolesSchema` (body) | `ReplaceRolesUseCase` | 200 |
+| 9c | user-roles | POST | `/api/v1/users/:id/roles/:role` | Bearer | admin | `validateObjectId` + `RoleParamSchema` | `AddRoleUseCase` | 204 |
+| 9d | user-roles | DELETE | `/api/v1/users/:id/roles/:role` | Bearer | admin | `validateObjectId` + `RoleParamSchema` | `RemoveRoleUseCase` | 204 |
 | 10 | storage | GET | `/api/v1/storage/objects` | Bearer | admin | `ListStorageQuerySchema` (query) | `ListStorageObjectsUseCase` | 200 |
 | 11 | storage | GET | `/api/v1/storage/signed-url` | Bearer | admin | `SignedUrlParamsSchema` (query) | `GetSignedUrlUseCase` | 200 |
 | 12 | health | GET | `/health/live` | publico | — | — | inline | 200 |
@@ -119,7 +130,7 @@ bearerAuth:
 | DTO | Forma | Notas |
 |---|---|---|
 | `LoginSchema` | `{ email: email-lowercased-trimmed, password: string >=1 }` | — |
-| `RegisterSchema` | `{ email, password: 8-72, name: 2-100, phone? }` | password limite 72 chars |
+| `RegisterSchema` | `{ email, password: 8-72, firstName: 2-50, lastName: 1-50, phone? }` | password limite 72 chars. Breaking: `name` retirado, ahora `firstName` + `lastName` (ambos requeridos) |
 | `RefreshSchema` | `{ refresh_token: string >=1 }` | — |
 
 > Codigo: `src/domain/auth/auth.dto.ts`.
@@ -128,9 +139,9 @@ bearerAuth:
 
 | DTO | Forma resumida |
 |---|---|
-| `CreateUserSchema` | `{ keycloak_id, email, name, slug?, phone?, picture?, avatar_url?, provider='password', roles=['buyer'] }` con `.transform()` que deriva `slug` |
-| `UpdateUserSchema` | todos opcionales: `name?, slug?, phone?, picture?, avatar_url?, roles?, email_verified?, is_active?` con `.refine()` exigiendo al menos uno |
-| `ListUserSchema` | `{ email?, name?, slug?, is_active? (true/false → bool), roles?, page=1, limit=20, sort?, order='desc' }` |
+| `CreateUserSchema` | `{ keycloak_id, email, firstName, lastName, slug?, phone?, picture?, avatar_url?, provider='password', roles=['buyer'] }` con `.transform()` que deriva `slug` de `${firstName} ${lastName}` |
+| `UpdateUserSchema` | todos opcionales: `firstName?, lastName?, slug?, phone?, picture?, avatar_url?, roles?, email_verified?, is_active?` con `.refine()` exigiendo al menos uno |
+| `ListUserSchema` | `{ email?, firstName?, slug?, is_active? (true/false → bool), roles?, page=1, limit=20, sort?, order='desc' }` |
 
 > Codigo: `src/domain/user/user.dto.ts`.
 
@@ -233,7 +244,8 @@ curl -X POST https://api.example.test/api/v1/auth/login \
       "id": "<USER_OBJECT_ID>",
       "keycloak_id": "<KEYCLOAK_SUB>",
       "email": "user@example.test",
-      "name": "User Example",
+      "firstName": "User",
+      "lastName": "Example",
       "slug": "user-example-ab12cd",
       "email_verified": true,
       "provider": "password",
@@ -269,7 +281,8 @@ curl -X POST https://api.example.test/api/v1/auth/login \
 {
   "email": "new@example.test",
   "password": "<PASSWORD_PLACEHOLDER>",
-  "name": "New User",
+  "firstName": "New",
+  "lastName": "User",
   "phone": "+34600000000"
 }
 ```
@@ -437,6 +450,71 @@ Authorization: Bearer <ADMIN_JWT>
 | Health (k8s liveness) | GET `/health/live` |
 | Health (k8s readiness) | GET `/health/ready` |
 | Documentacion interactiva | GET `/api-docs` |
+| Listar roles de un usuario | GET `/api/v1/users/:id/roles` con Bearer admin |
+| Reemplazar set de roles    | PUT `/api/v1/users/:id/roles` con Bearer admin |
+| Anyadir rol concreto       | POST `/api/v1/users/:id/roles/:role` con Bearer admin |
+| Retirar rol concreto       | DELETE `/api/v1/users/:id/roles/:role` con Bearer admin |
+
+---
+
+## User Roles Management
+
+CRUD admin-only para mutar el set de roles de un usuario. Sincroniza KC (realm role-mapping) + Mongo en cada operacion y emite `user.role_changed` con `before`/`after`/`actorId`.
+
+**Roles validos** (catalogo cerrado en `USER_ROLES`): `buyer`, `seller`, `operator`, `admin`.
+
+**Self-demotion guard**: el actor NO puede dejarse sin `admin` (bloquea PUT que excluya admin sobre su propio user, y DELETE de su propio `admin`). Respuesta 400 `Cannot self-demote admin`.
+
+### GET `/users/:id/roles`
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  https://api.example.com/api/v1/users/$USER_ID/roles
+```
+
+Response 200:
+```json
+{ "message": "Roles retrieved", "data": { "roles": ["buyer"] } }
+```
+
+### PUT `/users/:id/roles`
+
+Idempotente. Calcula diff contra Mongo, llama `iam.assignRoles(toAdd)` + `iam.removeRoles(toRemove)` y persiste el set final.
+
+```bash
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"roles":["seller","operator"]}' \
+  https://api.example.com/api/v1/users/$USER_ID/roles
+```
+
+Response 200:
+```json
+{ "message": "Roles replaced", "data": { "roles": ["seller","operator"] } }
+```
+
+Errores: 400 (body vacio o self-demotion), 401, 403, 404, 502 (KC failure).
+
+### POST `/users/:id/roles/:role`
+
+Anyade un rol. No-op si el usuario ya lo tiene.
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  https://api.example.com/api/v1/users/$USER_ID/roles/seller
+```
+
+Response 204 (sin body). Errores: 400 (rol invalido), 401, 403, 404, 502.
+
+### DELETE `/users/:id/roles/:role`
+
+Retira un rol. No-op si no lo tiene. Bloquea self-demotion del propio `admin`.
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+  https://api.example.com/api/v1/users/$USER_ID/roles/seller
+```
+
+Response 204. Errores: 400 (rol invalido o self-demotion), 401, 403, 404, 502.
 
 ---
 

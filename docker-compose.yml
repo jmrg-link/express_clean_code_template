@@ -190,34 +190,31 @@ services:
       - "traefik.http.routers.traefik-dashboard.middlewares=chain-admin-panel,basicauth-traefik"
 
   # ---------------------------------------------------------------------------
-  # mongodb
+  # mongodb (DESHABILITADO)
   #
-  # Base de datos principal del backend.
+  # Mongo local retirado: dev:local y dev:staging conectan a Mongo AWS staging
+  # via SSM tunnel (localhost:27017). Producción conecta a Mongo AWS prod.
+  # Para arrancar el túnel: `bash scripts/ssm-mongo-staging.sh`.
   #
-  # Puertos:
-  #   27017 expuesto solo a 127.0.0.1 para que `pnpm dev` (API en host) pueda
-  #         conectar sin pasar por la red Docker. Bind a loopback es seguro:
-  #         no se expone a la red externa. Si todo corre dentro del compose,
-  #         el bloque ports puede comentarse.
-  #
-  # Volumen mongo_data persiste /data/db entre arranques.
+  # Si necesitas reactivar Mongo local temporal (offline dev), descomentar el
+  # bloque entero y volver a apuntar .env.local a mongodb://localhost:27017.
   # ---------------------------------------------------------------------------
-  mongodb:
-    image: mongo:8.2
-    container_name: mongodb
-    restart: unless-stopped
-    networks:
-      - backend
-    ports:
-      - "127.0.0.1:27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+  # mongodb:
+  #   image: mongo:8.2
+  #   container_name: mongodb
+  #   restart: unless-stopped
+  #   networks:
+  #     - backend
+  #   ports:
+  #     - "127.0.0.1:27017:27017"
+  #   volumes:
+  #     - mongo_data:/data/db
+  #   healthcheck:
+  #     test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
 
   # ---------------------------------------------------------------------------
   # keycloak
@@ -346,8 +343,9 @@ services:
       - backend
       - monitoring
     depends_on:
-      mongodb:
-        condition: service_healthy
+      # mongodb deshabilitado — la API conecta a Mongo AWS via SSM tunnel
+      # mongodb:
+      #   condition: service_healthy
       keycloak:
         condition: service_started
     healthcheck:
@@ -524,7 +522,7 @@ services:
 # Volumes nombrados (persistencia entre arranques)
 # -----------------------------------------------------------------------------
 volumes:
-  mongo_data:
+  # mongo_data:  # deshabilitado junto con el servicio mongodb
   keycloak_data:
   localstack_data:
   loki_data:

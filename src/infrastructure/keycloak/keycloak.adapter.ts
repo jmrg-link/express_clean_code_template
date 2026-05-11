@@ -155,9 +155,6 @@ export class KeycloakAdapter implements IamPort {
   public async registerUser(input: IamRegisterInput): Promise<string> {
     const adminToken = await this.getAdminToken();
 
-    const [firstName, ...rest] = input.name.split(' ');
-    const lastName = rest.join(' ') || firstName!;
-
     const res = await fetch(`${this.adminBaseUrl}/users`, {
       method: 'POST',
       headers: {
@@ -167,8 +164,8 @@ export class KeycloakAdapter implements IamPort {
       body: JSON.stringify({
         username: input.email,
         email: input.email,
-        firstName,
-        lastName,
+        firstName: input.firstName,
+        lastName: input.lastName,
         enabled: true,
         emailVerified: true,
         credentials: [{ type: 'password', value: input.password, temporary: false }],
@@ -218,6 +215,41 @@ export class KeycloakAdapter implements IamPort {
       const text = await assignRes.text();
       this.logger?.error(`Failed to assign roles: ${text}`);
       throw CustomError.badGateway('Failed to assign roles in IAM');
+    }
+  }
+
+  public async removeRoles(userId: string, roleNames: string[]): Promise<void> {
+    if (roleNames.length === 0) return;
+    const adminToken = await this.getAdminToken();
+
+    const roles: KeycloakRealmRole[] = [];
+    for (const roleName of roleNames) {
+      const res = await fetch(`${this.adminBaseUrl}/roles/${roleName}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      if (res.ok) roles.push((await res.json()) as KeycloakRealmRole);
+      else this.logger?.warn(`Role '${roleName}' not found in realm`);
+    }
+
+    if (roles.length === 0) return;
+
+    const removeRes = await fetch(`${this.adminBaseUrl}/users/${userId}/role-mappings/realm`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify(roles),
+    });
+
+    if (removeRes.status === 404) {
+      this.logger?.debug(`Role mappings already absent for user ${userId}`);
+      return;
+    }
+    if (!removeRes.ok) {
+      const text = await removeRes.text();
+      this.logger?.error(`Failed to remove roles: ${text}`);
+      throw CustomError.badGateway('Failed to remove roles in IAM');
     }
   }
 

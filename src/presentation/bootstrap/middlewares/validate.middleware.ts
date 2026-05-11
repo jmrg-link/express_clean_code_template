@@ -23,6 +23,19 @@ export const validate = {
       next();
     };
   },
+
+  /**
+   * Valida `req.params` contra un schema Zod. Las claves del schema deben
+   * coincidir con los nombres de los parámetros del path (ej. `:role`).
+   * Si pasa, escribe los valores parseados de vuelta sobre `req.params`.
+   */
+  params<T extends Record<string, string>>(schema: ZodSchema<T>): RequestHandler {
+    return (req: Request, _res: Response, next: NextFunction) => {
+      const parsed = schema.parse(req.params);
+      Object.assign(req.params, parsed);
+      next();
+    };
+  },
 };
 
 declare global {

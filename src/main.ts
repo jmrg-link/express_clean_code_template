@@ -1,16 +1,20 @@
 import { env } from '#config/env';
+import { MongoDatabase } from '#config/database';
 import { WinstonLoggerAdapter } from '#infrastructure/logger/winston.adapter';
 import { KeycloakAdapter } from '#infrastructure/keycloak/keycloak.adapter';
 import { S3StorageAdapter } from '#infrastructure/services/s3/s3-storage.adapter';
 import { InMemoryEventBus } from '#infrastructure/events/in-memory-event-bus';
 import { LoginAuditLogRepository } from '#infrastructure/mongodb/repositories/login-audit-log.repository';
 import { UserCommandRepository } from '#infrastructure/mongodb/repositories/user.command.repository';
+import { UserQueryRepository } from '#infrastructure/mongodb/repositories/user.query.repository';
 import { AuditLoginObserver } from '#application/audit/use-cases/audit-login.observer';
+import { BootstrapRoleReconciler } from '#application/bootstrap/role-reconciler';
 import { JwtMiddleware } from '#presentation/bootstrap/middlewares/jwt.middleware';
 import { AppRouter } from '#presentation/bootstrap/app-router';
 import { App } from '#presentation/bootstrap/app';
 import { Server } from '#presentation/bootstrap/server';
 import { UserRouter } from '#presentation/user/user.router';
+import { UserRolesRouter } from '#presentation/user-roles/user-roles.router';
 import { AuthRouter } from '#presentation/auth/auth.router';
 import { StorageRouter } from '#presentation/storage/storage.router';
 import type { StoragePort } from '#domain/shared/storage/storage.port';
@@ -59,11 +63,37 @@ async function main(): Promise<void> {
   }
 
   const userRouter = new UserRouter({ jwtMiddleware });
-  const authRouter = new AuthRouter({ iam, jwtMiddleware, eventBus });
+  const userRolesRouter = new UserRolesRouter({ iam, jwtMiddleware, eventBus });
+  const authRouter = new AuthRouter({
+    iam,
+    jwtMiddleware,
+    eventBus,
+    adminEmailPatterns: env.auth.adminEmailPatterns,
+    logger,
+  });
 
-  const appRouter = new AppRouter({ userRouter, authRouter, storageRouter });
+  const appRouter = new AppRouter({ userRouter, userRolesRouter, authRouter, storageRouter });
   const app = new App({ appRouter, logger });
   const server = new Server(app.getExpressApp(), logger);
+
+  if (env.rbac.bootstrapReconcile) {
+    await MongoDatabase.connect(logger);
+    const reconciler = new BootstrapRoleReconciler(
+      iam,
+      new UserQueryRepository(),
+      new UserCommandRepository(),
+      eventBus,
+      env.auth.adminEmailPatterns,
+      logger,
+    );
+    try {
+      await reconciler.run();
+    } catch (err) {
+      logger.error('Bootstrap reconciler crashed (continuing boot)', {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   await server.start();
 }

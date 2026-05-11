@@ -3,10 +3,12 @@ import { env } from '#config/env';
 import type { UserRouter } from '#presentation/user/user.router';
 import type { AuthRouter } from '#presentation/auth/auth.router';
 import type { StorageRouter } from '#presentation/storage/storage.router';
+import type { UserRolesRouter } from '#presentation/user-roles/user-roles.router';
 
 interface AppRouterOptions {
   userRouter: UserRouter;
   authRouter: AuthRouter;
+  userRolesRouter: UserRolesRouter;
   /** Opcional: solo si S3 está configurado. */
   storageRouter?: StorageRouter;
 }
@@ -21,18 +23,21 @@ export class AppRouter {
   public readonly prefix: string;
   private readonly userRouter: UserRouter;
   private readonly authRouter: AuthRouter;
+  private readonly userRolesRouter: UserRolesRouter;
   private readonly storageRouter?: StorageRouter;
 
   public constructor(options: AppRouterOptions) {
     this.prefix = `${env.server.apiPrefix}/${env.server.apiVersion}`;
     this.userRouter = options.userRouter;
     this.authRouter = options.authRouter;
+    this.userRolesRouter = options.userRolesRouter;
     this.storageRouter = options.storageRouter;
   }
 
   public build(): Router {
     const router = Router();
     router.use('/auth', this.authRouter.build());
+    router.use('/users/:id/roles', this.userRolesRouter.build());
     router.use('/users', this.userRouter.build());
     if (this.storageRouter) {
       router.use('/storage', this.storageRouter.build());

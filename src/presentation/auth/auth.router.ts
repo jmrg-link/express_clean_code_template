@@ -2,6 +2,8 @@ import { Router } from 'express';
 import type { IamPort } from '#domain/auth/iam.port';
 import type { JwtMiddleware } from '#presentation/bootstrap/middlewares/jwt.middleware';
 import type { EventBusPort } from '#domain/shared/events/event-bus.port';
+import type { LoggerPort } from '#domain/shared/logger/logger.port';
+import type { AdminEmailPattern } from '#domain/auth/admin-email-policy';
 import { validate } from '#presentation/bootstrap/middlewares/validate.middleware';
 import {
   loginRateLimiter,
@@ -21,6 +23,8 @@ interface AuthRouterOptions {
   iam: IamPort;
   jwtMiddleware: JwtMiddleware;
   eventBus: EventBusPort;
+  adminEmailPatterns: ReadonlyArray<AdminEmailPattern>;
+  logger: LoggerPort;
 }
 
 /**
@@ -41,7 +45,14 @@ export class AuthRouter {
 
     const userQuery = new UserQueryRepository();
     const userCommand = new UserCommandRepository();
-    const facade = new AuthFacade(options.iam, userQuery, userCommand, options.eventBus);
+    const facade = new AuthFacade(
+      options.iam,
+      userQuery,
+      userCommand,
+      options.eventBus,
+      options.adminEmailPatterns,
+      options.logger,
+    );
     this.controller = new AuthController(facade);
 
     this.register();
@@ -95,6 +106,9 @@ export class AuthRouter {
      *       Creates the user in Keycloak (via admin API), persists it locally
      *       and returns access/refresh tokens. Rate-limited to 3 attempts per
      *       minute per client IP to mitigate mass-registration abuse.
+     *
+     *       Breaking change: el campo `name` se sustituye por `firstName` y
+     *       `lastName`, ambos requeridos. KC almacena ambos nativamente.
      *     tags: [Auth]
      *     requestBody:
      *       required: true
@@ -102,12 +116,13 @@ export class AuthRouter {
      *         application/json:
      *           schema:
      *             type: object
-     *             required: [email, password, name]
+     *             required: [email, password, firstName, lastName]
      *             properties:
-     *               email:    { type: string, format: email }
-     *               password: { type: string, minLength: 8 }
-     *               name:     { type: string, minLength: 2 }
-     *               phone:    { type: string }
+     *               email:     { type: string, format: email }
+     *               password:  { type: string, minLength: 8, maxLength: 72 }
+     *               firstName: { type: string, minLength: 2, maxLength: 50 }
+     *               lastName:  { type: string, minLength: 1, maxLength: 50 }
+     *               phone:     { type: string }
      *     responses:
      *       201: { description: User registered, tokens issued }
      *       400: { description: Invalid payload (Zod validation failed) }

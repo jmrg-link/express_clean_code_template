@@ -45,8 +45,8 @@ export class UserQueryRepository implements UserQueryRepositoryPort {
     const mongoFilter: Record<string, unknown> = {};
     if (filter.email)
       mongoFilter.email = { $regex: UserQueryRepository.escapeRegex(filter.email), $options: 'i' };
-    if (filter.name)
-      mongoFilter.name = { $regex: UserQueryRepository.escapeRegex(filter.name), $options: 'i' };
+    if (filter.firstName)
+      mongoFilter.firstName = { $regex: UserQueryRepository.escapeRegex(filter.firstName), $options: 'i' };
     if (filter.is_active !== undefined) mongoFilter.is_active = filter.is_active;
     if (filter.roles) mongoFilter.roles = filter.roles;
 
@@ -74,7 +74,7 @@ export class UserQueryRepository implements UserQueryRepositoryPort {
    * Mongoose, evitando ReDoS y regex injection.
    *
    * @param input - Texto libre proveniente del cliente (ej. filtro admin de
-   * `email` o `name`).
+   * `email` o `firstName`).
    * @returns El mismo texto con los metacaracteres reservados precedidos por
    * backslash, listo para concatenarse en una expresión regular.
    */

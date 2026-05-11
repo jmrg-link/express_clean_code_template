@@ -10,7 +10,7 @@ import type {
  */
 export interface UserListFilter {
   email?: string;
-  name?: string;
+  firstName?: string;
   slug?: string;
   is_active?: boolean;
   roles?: UserRole;
@@ -19,7 +19,8 @@ export interface UserListFilter {
 export interface UserCreateInput {
   keycloak_id: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   slug: string;
   phone?: string;
   picture?: string;
@@ -31,7 +32,8 @@ export interface UserCreateInput {
 }
 
 export interface UserUpdateInput {
-  name?: string;
+  firstName?: string;
+  lastName?: string;
   slug?: string;
   phone?: string;
   picture?: string;

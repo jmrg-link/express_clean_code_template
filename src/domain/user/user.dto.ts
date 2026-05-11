@@ -13,15 +13,16 @@ export type UserIdDto = z.infer<typeof UserIdSchema>;
  * CreateUser DTO.
  *
  * `slug` se genera con Zod transform — si el cliente no lo manda, lo derivamos
- * del `name`. Si lo manda, lo normalizamos con Slugger igual (defensa).
- * Esto sigue la pauta del usuario:
+ * de `${firstName} ${lastName}`. Si lo manda, lo normalizamos con Slugger igual
+ * (defensa). Esto sigue la pauta del usuario:
  *   "slugify para urls limpias con schema y zod"
  */
 export const CreateUserSchema = z
   .object({
     keycloak_id: z.string().min(1),
     email: z.string().email().toLowerCase().trim(),
-    name: z.string().min(2).max(100),
+    firstName: z.string().min(2).max(50).trim(),
+    lastName: z.string().min(1).max(50).trim(),
     slug: z.string().optional(),
     phone: z.string().optional(),
     picture: z.string().url().optional(),
@@ -31,13 +32,16 @@ export const CreateUserSchema = z
   })
   .transform((data) => ({
     ...data,
-    slug: data.slug ? Slugger.base(data.slug) : Slugger.withRandomSuffix(data.name),
+    slug: data.slug
+      ? Slugger.base(data.slug)
+      : Slugger.withRandomSuffix(`${data.firstName} ${data.lastName}`),
   }));
 export type CreateUserDto = z.infer<typeof CreateUserSchema>;
 
 export const UpdateUserSchema = z
   .object({
-    name: z.string().min(2).max(100).optional(),
+    firstName: z.string().min(2).max(50).trim().optional(),
+    lastName: z.string().min(1).max(50).trim().optional(),
     slug: z
       .string()
       .optional()
@@ -56,7 +60,7 @@ export type UpdateUserDto = z.infer<typeof UpdateUserSchema>;
 
 export const ListUserSchema = z.object({
   email: z.string().optional(),
-  name: z.string().optional(),
+  firstName: z.string().optional(),
   slug: z.string().optional(),
   is_active: z
     .enum(['true', 'false'])

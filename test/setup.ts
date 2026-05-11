@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 let mongod: MongoMemoryServer | undefined;
 
 process.env.NODE_ENV = 'test';
-process.env.PORT = '0';
+process.env.PORT = '3001';
 process.env.JWT_SECRET = 'test-secret-vitest-min-16-chars';
 process.env.KEYCLOAK_URL = 'http://localhost:8080';
 process.env.KEYCLOAK_REALM = 'app';
