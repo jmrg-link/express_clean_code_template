@@ -107,6 +107,9 @@ export class App {
   }
 
   private registerSwagger(): void {
+    this.expressApp.get('/api-docs.json', (_req, res) => {
+      res.type('application/json').send(swaggerSpec);
+    });
     this.expressApp.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
   }
 

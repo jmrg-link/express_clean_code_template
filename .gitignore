@@ -78,3 +78,8 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+
+# Postman artifacts (generated locally via /api-docs.json + manual env editing)
+docs/api/postman/openapi.json
+docs/api/postman/*.postman_environment.json
+docs/api/postman/*.postman_collection.json

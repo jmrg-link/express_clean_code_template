@@ -34,6 +34,7 @@
     "dev": "cross-env NODE_ENV=local dotenv -e .env.local -- tsx watch src/main.ts",
     "dev:local": "cross-env NODE_ENV=local dotenv -e .env.local -- tsx watch src/main.ts",
     "dev:staging": "cross-env NODE_ENV=staging dotenv -e .env.staging -- tsx watch src/main.ts",
+    "dev:prod": "cross-env NODE_ENV=production dotenv -e .env.production -- tsx watch src/main.ts",
     "build": "tsc",
     "start": "cross-env NODE_ENV=production dotenv -e .env.production -- node dist/main.js",
     "start:staging": "cross-env NODE_ENV=staging dotenv -e .env.staging -- node dist/main.js",
