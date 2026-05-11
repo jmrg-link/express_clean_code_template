@@ -56,6 +56,46 @@ const JwtSchema = z.object({
     .pipe(z.string().min(16).optional()),
 });
 
+const RbacSchema = z.object({
+  /**
+   * Si `true`, en el arranque la app ejecuta el `BootstrapRoleReconciler`:
+   * promueve a `admin` los usuarios de Mongo cuyo email cumpla
+   * `ADMIN_EMAIL_PATTERNS`. Idempotente — seguro dejarlo `true` permanente.
+   */
+  RBAC_BOOTSTRAP_RECONCILE: z
+    .string()
+    .default('false')
+    .transform((v) => v.trim().toLowerCase() === 'true'),
+});
+
+const AuthSchema = z.object({
+  /**
+   * CSV de patrones admin leídos desde `process.env.ADMIN_EMAIL_PATTERNS`.
+   * Acepta literal `<localpart>@<domain.tld>` o wildcard de dominio
+   * `*@<domain.tld>`. Lista vacía → política off. Ningún valor por defecto
+   * con dominios reales en código; el operador configura el env file.
+   */
+  ADMIN_EMAIL_PATTERNS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    )
+    .pipe(
+      z.array(
+        z
+          .string()
+          .regex(
+            /^(\*@|[^\s@*]+@)[^\s@*]+\.[^\s@*]+$/,
+            'invalid pattern (use info@domain.tld or *@domain.tld)',
+          ),
+      ),
+    ),
+});
+
 const S3Schema = z.object({
   AWS_REGION: z.string().default('eu-west-1'),
   AWS_S3_BUCKET: emptyToUndefined.optional(),
@@ -91,6 +131,8 @@ const server = parseOrDie(ServerSchema, 'server');
 const mongo = parseOrDie(MongoSchema, 'mongo');
 const keycloak = parseOrDie(KeycloakSchema, 'keycloak');
 const jwt = parseOrDie(JwtSchema, 'jwt');
+const rbac = parseOrDie(RbacSchema, 'rbac');
+const auth = parseOrDie(AuthSchema, 'auth');
 const s3 = parseOrDie(S3Schema, 's3');
 const loki = parseOrDie(LokiSchema, 'loki');
 
@@ -119,6 +161,14 @@ export const env = Object.freeze({
   },
   jwt: {
     secret: jwt.JWT_SECRET,
+  },
+  auth: {
+    /** Patrones que conceden rol admin al registrar/sincronizar usuarios. */
+    adminEmailPatterns: Object.freeze(auth.ADMIN_EMAIL_PATTERNS) as ReadonlyArray<string>,
+  },
+  rbac: {
+    /** Activa el reconciler en boot (promueve admins existentes). */
+    bootstrapReconcile: rbac.RBAC_BOOTSTRAP_RECONCILE,
   },
   s3: {
     region: s3.AWS_REGION,

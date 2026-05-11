@@ -65,7 +65,8 @@ describe('Users integration', () => {
       .send({
         keycloak_id: 'kc-fake-1',
         email: 'target@example.com',
-        name: 'Target',
+        firstName: 'Target',
+        lastName: 'User',
         provider: 'password',
         roles: ['buyer'],
       });

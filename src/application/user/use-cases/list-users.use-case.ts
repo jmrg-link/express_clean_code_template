@@ -14,7 +14,7 @@ export class ListUsersUseCase {
 
     const filter: UserListFilter = {};
     if (rawFilter.email) filter.email = rawFilter.email;
-    if (rawFilter.name) filter.name = rawFilter.name;
+    if (rawFilter.firstName) filter.firstName = rawFilter.firstName;
     if (rawFilter.is_active !== undefined) filter.is_active = rawFilter.is_active;
     if (rawFilter.roles) filter.roles = rawFilter.roles;
 

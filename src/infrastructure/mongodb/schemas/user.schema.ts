@@ -20,7 +20,8 @@ export interface UserDocument extends Document {
   _id: Types.ObjectId;
   keycloak_id: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   slug: string;
   phone?: string;
   picture?: string;
@@ -45,7 +46,8 @@ const userSchema = new Schema<UserDocument, UserModelType>(
   {
     keycloak_id: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    name: { type: String, required: true, trim: true },
+    firstName: { type: String, required: true, trim: true },
+    lastName: { type: String, default: '', trim: true },
     slug: { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
     phone: { type: String },
     picture: { type: String },

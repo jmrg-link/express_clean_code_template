@@ -11,14 +11,15 @@ aplicadas en el sistema.
 1. [Cadena de autenticacion E2E](#cadena-de-autenticacion-e2e)
 2. [verifyToken vs decodeToken](#verifytoken-vs-decodetoken)
 3. [Realm Keycloak: roles, clients, lifespans](#realm-keycloak-roles-clients-lifespans)
-4. [Despliegue detras de Traefik (`trust proxy`)](#despliegue-detras-de-traefik-trust-proxy)
-5. [Rate limiting](#rate-limiting)
-6. [NoSQL injection / regex sanitization](#nosql-injection--regex-sanitization)
-7. [Secrets management](#secrets-management)
-8. [CORS whitelist](#cors-whitelist)
-9. [helmet defaults](#helmet-defaults)
-10. [Logging y privacidad](#logging-y-privacidad)
-11. [Defensa anti-bruteforce](#defensa-anti-bruteforce)
+4. [RBAC: roles, politica de admin y CRUD](#rbac-roles-politica-de-admin-y-crud)
+5. [Despliegue detras de Traefik (`trust proxy`)](#despliegue-detras-de-traefik-trust-proxy)
+6. [Rate limiting](#rate-limiting)
+7. [NoSQL injection / regex sanitization](#nosql-injection--regex-sanitization)
+8. [Secrets management](#secrets-management)
+9. [CORS whitelist](#cors-whitelist)
+10. [helmet defaults](#helmet-defaults)
+11. [Logging y privacidad](#logging-y-privacidad)
+12. [Defensa anti-bruteforce](#defensa-anti-bruteforce)
 
 ---
 
@@ -154,6 +155,82 @@ docker compose restart api traefik
 ```
 
 El script soporta `DRY_RUN=1` para auditar sin aplicar cambios.
+
+---
+
+## RBAC: roles, politica de admin y CRUD
+
+### Catalogo cerrado de roles
+
+`src/domain/user/user.entity.ts` define `USER_ROLES`:
+
+| Rol | Significado |
+|---|---|
+| `buyer` | Cuenta corriente. Default al registrarse sin politica. |
+| `seller` | Puede publicar / gestionar listings propios. |
+| `operator` | Operador interno: gestion de listings y transacciones. |
+| `admin` | Acceso total. Unico que puede invocar `/users` + `/users/:id/roles*`. |
+
+Sincronizados con realm Keycloak `app-realm.json`: KC es la fuente de verdad. Mongo `users.roles` es proyeccion.
+
+### `ADMIN_EMAIL_PATTERNS`
+
+Lista CSV en `process.env`. Cada patron es:
+
+- Literal: `info@empresa.com` — coincide con ese email exacto.
+- Wildcard de dominio: `*@empresa.com` — coincide con cualquier local-part de ese dominio.
+
+Validacion Zod cierra el grammar: rechaza glob multi-dominio, regex, `prefix*@`, etc. Comparacion `case-insensitive` + `trim`.
+
+```bash
+ADMIN_EMAIL_PATTERNS=info@empresa.com,*@dominio-propio.dev
+```
+
+`RegisterUseCase` aplica `matchesAdminPattern(email, patterns)` y asigna `['admin']` (KC + Mongo) cuando hay match; `['buyer']` en caso contrario. Documentado en `src/domain/auth/admin-email-policy.ts`.
+
+### Endpoints CRUD `/users/:id/roles`
+
+Todos requieren `Bearer + checkRole('admin')`. Param `:id` validado contra ObjectId; `:role` contra `USER_ROLES`.
+
+| Metodo | Path | Status | Idempotente | Use-case |
+|---|---|---|---|---|
+| GET | `/users/:id/roles` | 200 | n/a (lectura) | `GetRolesUseCase` |
+| PUT | `/users/:id/roles` | 200 | si (replace set) | `ReplaceRolesUseCase` |
+| POST | `/users/:id/roles/:role` | 204 | si (no-op si ya presente) | `AddRoleUseCase` |
+| DELETE | `/users/:id/roles/:role` | 204 | si (no-op si ya ausente) | `RemoveRoleUseCase` |
+
+Cada mutacion efectiva: `iam.assignRoles` / `iam.removeRoles` primero, `userCommand.update` despues, evento `user.role_changed { before, after, actorId }` al final. KC = source of truth; Mongo cachea.
+
+### Self-demotion guard
+
+`ReplaceRolesUseCase` y `RemoveRoleUseCase` bloquean (400 `Cannot self-demote admin`) cuando `req.user.id === target.keycloak_id` y la operacion retiraria `admin` del actor. Evita el lockout cuando solo queda un admin que se desadministra a si mismo.
+
+> Limite conocido: no se enforca "al menos 1 admin global" — un admin puede quitarle admin a otro admin. La invariante global queda fuera de scope para no introducir count queries on the hot path.
+
+### Bootstrap reconciler
+
+`src/application/bootstrap/role-reconciler.ts`. Se activa en boot solo si `RBAC_BOOTSTRAP_RECONCILE=true`. Recorre `users` paginado (limit 100), filtra por `matchesAdminPattern(user.email)` y promueve a `admin` (KC + Mongo) a los que no lo tengan. Idempotente y **aditivo**: jamas retira roles aunque el patron deje de aplicar.
+
+Runbook operador:
+
+```bash
+# 1. Configurar patrones en .env.<env>
+ADMIN_EMAIL_PATTERNS=*@dominio-propio.dev
+
+# 2. Encender flag y desplegar
+RBAC_BOOTSTRAP_RECONCILE=true
+
+# 3. Revisar log de boot: "Role reconciler completed { scanned, matched, promoted, ... }"
+
+# 4. Opcional: apagar flag tras la promocion inicial (idempotencia hace inocuo dejarlo true).
+RBAC_BOOTSTRAP_RECONCILE=false
+```
+
+Fallo por usuario individual → log error + continua. Fallo del scan completo → la app sigue arrancando.
+
+### Drift detection en login
+
+`LoginUseCase` calcula `matchesAdminPattern(claims.email)` tras `verifyToken`. Si la policy aplica pero el token KC no incluye `admin`, emite `logger.warn('Admin policy drift detected', { email, kcRoles })`. **Nunca escala roles via login** — solo loggea para forenses.
 
 ---
 

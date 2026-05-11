@@ -1,6 +1,12 @@
 import rateLimit from 'express-rate-limit';
 
 /**
+ * Permite saltarse los límites en suites `vitest` (NODE_ENV=test) sin que el
+ * contador in-memory acumule peticiones entre casos de un mismo describe.
+ */
+const isTestEnv = process.env.NODE_ENV === 'test';
+
+/**
  * Rate limiter agresivo para `/auth/login`.
  *
  * @remarks
@@ -11,7 +17,7 @@ import rateLimit from 'express-rate-limit';
  */
 export const loginRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5,
+  max: isTestEnv ? 9999 : 5,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
@@ -29,7 +35,7 @@ export const loginRateLimiter = rateLimit({
  */
 export const registerRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 3,
+  max: isTestEnv ? 9999 : 3,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many registration attempts, please try again later' },

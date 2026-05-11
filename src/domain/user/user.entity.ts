@@ -20,7 +20,8 @@ export interface UserEntity {
   id: string;
   keycloak_id: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   slug: string;
   phone?: string;
   picture?: string;

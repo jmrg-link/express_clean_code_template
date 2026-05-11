@@ -74,7 +74,8 @@ export class UserRouter {
      *         name: email
      *         schema: { type: string }
      *       - in: query
-     *         name: name
+     *         name: firstName
+     *         description: Case-insensitive contains match on `firstName`.
      *         schema: { type: string }
      *       - in: query
      *         name: is_active

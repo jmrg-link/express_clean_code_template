@@ -47,7 +47,7 @@ Total: **11 use-cases** + 3 Facades + 1 Observer = **14 unidades** de logica.
 | Schema           | Campos                                                     | Notas                                           |
 | ---------------- | ---------------------------------------------------------- | ----------------------------------------------- |
 | `LoginSchema`    | `email`, `password`                                        | email lowercase + trim                          |
-| `RegisterSchema` | `email`, `password` (8-72 chars), `name` (2-100), `phone?` | password limite 72 = limite bcrypt si lo añaden |
+| `RegisterSchema` | `email`, `password` (8-72 chars), `firstName` (2-50), `lastName` (1-50), `phone?` | breaking: `name` retirado en favor de `firstName` + `lastName` |
 | `RefreshSchema`  | `refresh_token`                                            | string min 1                                    |
 
 > Codigo: `src/domain/auth/auth.dto.ts:3,9,17`.
@@ -98,7 +98,7 @@ sequenceDiagram
   IAM-->>UC: claims (sub, email, name, roles)
   UC->>UQ: findByKeycloakId(claims.id)
   alt user no existe (auto-sync)
-    UC->>UC2: create({ keycloak_id, email, name, slug, roles, ... })
+    UC->>UC2: create({ keycloak_id, email, firstName, lastName, slug, roles, ... })
     UC2-->>UC: user
   end
   UC->>EB: publish(user.logged_in)
@@ -122,12 +122,12 @@ local, `LoginUseCase` lo **crea** con:
 
 - `keycloak_id` ← `claims.id`
 - `email` ← `claims.email` (fallback `dto.email`)
-- `name` ← `claims.name` (fallback `dto.email.split('@')[0]`)
-- `slug` ← `Slugger.withRandomSuffix(name)`
+- `firstName` / `lastName` ← `claims.name` partido por ÚLTIMO espacio (helper privado `splitFullNameByLastSpace`). Si solo hay una palabra, `lastName=''`. Fallback de `firstName` cuando el claim viene vacio: `dto.email.split('@')[0]`.
+- `slug` ← `Slugger.withRandomSuffix("${firstName} ${lastName}".trim())`
 - `provider: 'password'`, `is_active: true`, `email_verified: true`
 - `roles` ← interseccion `claims.roles ∩ USER_ROLES`, fallback `['buyer']`
 
-> Codigo: `src/application/auth/use-cases/login.use-case.ts:62-76`.
+> Codigo: `src/application/auth/use-cases/login.use-case.ts`.
 
 Esto habilita login con usuarios creados directamente en el panel
 Keycloak — no obliga a usar `/auth/register` siempre.
@@ -136,17 +136,11 @@ Keycloak — no obliga a usar `/auth/register` siempre.
 
 Estrategia consciente:
 
-1. PRIMERO Keycloak (`registerUser` → `assignRoles`).
+1. PRIMERO Keycloak (`registerUser` con `firstName` + `lastName` nativos → `assignRoles`).
 2. LUEGO Mongo (`userCommand.create`).
 3. Login final para devolver tokens.
 
-### `name`-split en `KeycloakAdapter.registerUser`
-
-> Heuristica documentada con sintomas:
-> `KeycloakAdapter.registerUser:160-161` parte el `name` por espacio
-> simple en `firstName` / `lastName`. Casos limite:
-> - `"Cher"` → `firstName="Cher"`, `lastName=""` (Keycloak puede rechazar).
-> - `"Mary Jane Smith"` → `firstName="Mary"`, `lastName="Jane Smith"`.
+El cliente envía `firstName` y `lastName` separados en `RegisterSchema` (breaking change documentado en `docs/api/reference.md`). `KeycloakAdapter` los traslada uno a uno al payload del admin API. No hay heurística de split: cada campo viaja explícito de cliente a IAM.
 
 ---
 
@@ -173,7 +167,8 @@ interface UserEntity {
   id: string;                      // Mongo _id transformado
   keycloak_id: string;             // ANCLA de identidad (claim sub)
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   slug: string;                    // url-friendly, unique
   phone?: string;
   picture?: string;                // URL externa (Google, gravatar)
@@ -193,9 +188,9 @@ interface UserEntity {
 
 | Schema             | Notas                                                                           |
 | ------------------ | ------------------------------------------------------------------------------- |
-| `CreateUserSchema` | `.transform()` deriva `slug` con `Slugger.withRandomSuffix(name)` si no se pasa |
-| `UpdateUserSchema` | `.refine()` exige al menos un campo presente                                    |
-| `ListUserSchema`   | filtros `email`, `name`, `slug`, `is_active`, `roles` + paginacion              |
+| `CreateUserSchema` | `.transform()` deriva `slug` con `Slugger.withRandomSuffix("${firstName} ${lastName}")` si no se pasa |
+| `UpdateUserSchema` | `firstName?`, `lastName?` (independientes) + resto opcional; `.refine()` exige al menos un campo presente |
+| `ListUserSchema`   | filtros `email`, `firstName`, `slug`, `is_active`, `roles` + paginacion |
 
 > Codigo: `src/domain/user/user.dto.ts:32,52,57-70`.
 

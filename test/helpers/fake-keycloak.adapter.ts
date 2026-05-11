@@ -14,7 +14,7 @@ import { CustomError } from '#domain/shared/errors';
 export class FakeKeycloakAdapter implements IamPort {
   private readonly users = new Map<
     string,
-    { password: string; sub: string; roles: string[]; name: string }
+    { password: string; sub: string; roles: string[]; firstName: string; lastName: string }
   >();
   private subCounter = 1;
 
@@ -23,11 +23,11 @@ export class FakeKeycloakAdapter implements IamPort {
   public async login(email: string, password: string): Promise<AuthTokens> {
     const u = this.users.get(email);
     if (!u || u.password !== password) throw CustomError.unauthorized('Invalid credentials');
-    return this.issueTokens(u.sub, email, u.name, u.roles);
+    return this.issueTokens(u.sub, email, `${u.firstName} ${u.lastName}`.trim(), u.roles);
   }
 
   public async refresh(_refreshToken: string): Promise<AuthTokens> {
-    return this.issueTokens('test-sub', 'test@example.com', 'Test', ['buyer']);
+    return this.issueTokens('test-sub', 'test@example.com', 'Test User', ['buyer']);
   }
 
   public async registerUser(input: IamRegisterInput): Promise<string> {
@@ -37,14 +37,22 @@ export class FakeKeycloakAdapter implements IamPort {
       password: input.password,
       sub,
       roles: ['buyer'],
-      name: input.name,
+      firstName: input.firstName,
+      lastName: input.lastName,
     });
     return sub;
   }
 
   public async assignRoles(userId: string, roles: string[]): Promise<void> {
     for (const u of this.users.values()) {
-      if (u.sub === userId) u.roles = roles;
+      if (u.sub === userId) u.roles = Array.from(new Set([...u.roles, ...roles]));
+    }
+  }
+
+  public async removeRoles(userId: string, roles: string[]): Promise<void> {
+    const toRemove = new Set(roles);
+    for (const u of this.users.values()) {
+      if (u.sub === userId) u.roles = u.roles.filter((r) => !toRemove.has(r));
     }
   }
 
@@ -75,9 +83,15 @@ export class FakeKeycloakAdapter implements IamPort {
     };
   }
 
-  public seed(email: string, password: string, roles: string[] = ['buyer'], name = 'Test'): string {
+  public seed(
+    email: string,
+    password: string,
+    roles: string[] = ['buyer'],
+    firstName = 'Test',
+    lastName = 'User',
+  ): string {
     const sub = `kc-sub-${this.subCounter++}`;
-    this.users.set(email, { password, sub, roles, name });
+    this.users.set(email, { password, sub, roles, firstName, lastName });
     return sub;
   }
 

@@ -14,7 +14,8 @@ import type { AuthTokens, AuthenticatedUser } from './auth.entity.js';
 export interface IamRegisterInput {
   email: string;
   password: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   phone?: string;
 }
 
@@ -30,6 +31,16 @@ export interface IamPort {
 
   /** Asigna roles al usuario en el IAM. */
   assignRoles(userId: string, roles: string[]): Promise<void>;
+
+  /**
+   * Quita roles asignados al usuario en el IAM.
+   *
+   * @remarks
+   * Idempotente: si el usuario no tiene asignado alguno de los roles
+   * solicitados, el adapter debe ignorarlo silenciosamente. Se usa desde
+   * `ReplaceRolesUseCase` (diff) y `RemoveRoleUseCase`.
+   */
+  removeRoles(userId: string, roles: string[]): Promise<void>;
 
   /** Verifica firma + expiración. Usado por middleware de auth. */
   verifyToken(token: string): Promise<AuthenticatedUser>;
