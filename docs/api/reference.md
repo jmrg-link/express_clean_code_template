@@ -518,6 +518,114 @@ Response 204. Errores: 400 (rol invalido o self-demotion), 401, 403, 404, 502.
 
 ---
 
+## Storage – User-scoped
+
+CRUD de archivos por usuario con presigned URLs. El cliente sube directo al storage; la API solo firma y lista. Doble surface: `me` (autenticado) y `users/:id` (admin).
+
+**Key shape**: `users/{slug}/{category}/{file-slug}-{rand6}.{ext}`
+
+| Componente | Origen | Notas |
+|---|---|---|
+| `slug` | `User.slug` (resuelto server-side) | Cliente nunca lo controla |
+| `category` | enum cerrado | `avatars | documents | attachments` |
+| `file-slug` | `Slugger.base(filename)` | ASCII estricto, sin espacios ni `%20` |
+| `rand6` | `crypto.randomBytes(8)` → `[a-z0-9]{6}` | Anti-colisión |
+| `ext` | extensión original lowercased | Vacío si dotfile |
+
+**MIME allowlist** (validado al firmar):
+
+| Categoría | MIME permitidos |
+|---|---|
+| `avatars` | `image/png`, `image/jpeg`, `image/webp` |
+| `documents` | `application/pdf` |
+| `attachments` | sin restricción |
+
+**Límites declarativos** (no enforced en S3 con SDK v3 presigner): avatars ≤ 2 MiB, documents ≤ 10 MiB, attachments ≤ 50 MiB.
+
+**TTL presigned URLs**: clamped a `[60, 900]` s (default 900). Doble clamp en Zod (DTO) y adapter.
+
+**`:key` en path**: viaja base64url-encoded para acomodar las `/` internas. El controller lo decodifica con `Buffer.from(encoded, 'base64url').toString('utf8')`.
+
+### Endpoints
+
+| Verbo | Path | Auth | Status éxito |
+|---|---|---|---|
+| POST | `/api/v1/storage/me/upload-url` | Bearer | 200 |
+| GET | `/api/v1/storage/me` | Bearer | 200 |
+| GET | `/api/v1/storage/me/:key/download-url` | Bearer + ownership | 200 |
+| DELETE | `/api/v1/storage/me/:key` | Bearer + ownership | 204 |
+| POST | `/api/v1/storage/users/:id/upload-url` | Bearer + admin | 200 |
+| GET | `/api/v1/storage/users/:id` | Bearer + admin | 200 |
+| GET | `/api/v1/storage/users/:id/:key/download-url` | Bearer + admin | 200 |
+| DELETE | `/api/v1/storage/users/:id/:key` | Bearer + admin | 204 |
+
+### POST `/storage/me/upload-url`
+
+Request:
+```json
+{
+  "category": "avatars",
+  "filename": "foto.png",
+  "contentType": "image/png",
+  "expiresInSeconds": 900
+}
+```
+
+Response 200:
+```json
+{
+  "message": "Upload URL issued",
+  "data": {
+    "uploadUrl": "https://<bucket>.s3.<region>.amazonaws.com/users/john-doe/avatars/foto-a1b2c3.png?X-Amz-Algorithm=...",
+    "key": "users/john-doe/avatars/foto-a1b2c3.png",
+    "expiresAt": "2026-05-12T01:15:00.000Z"
+  }
+}
+```
+
+El cliente sube vía `PUT` directo. **El `Content-Type` del PUT debe coincidir exactamente** con el firmado, si no S3 devuelve 403.
+
+```bash
+curl -X PUT --data-binary @foto.png \
+  -H "Content-Type: image/png" \
+  "$UPLOAD_URL"
+```
+
+Errores: 400 (Zod / MIME no permitido), 401, 404 (user local no encontrado), 502 (storage falla).
+
+### GET `/storage/me`
+
+Query opcional: `?category=<enum>&maxKeys=<1-1000>&continuationToken=<string>`.
+
+Response 200:
+```json
+{
+  "message": "Files listed",
+  "data": {
+    "objects": [
+      { "key": "users/john-doe/avatars/foto-a1b2c3.png", "size": 53210, "lastModified": "...", "etag": "..." }
+    ],
+    "isTruncated": false
+  }
+}
+```
+
+### GET `/storage/me/:key/download-url`
+
+`:key` viene base64url-encoded. Devuelve URL firmada GET con TTL `?expiresIn` (60-900s, default 900).
+
+Errores: 400 (encoding inválido), 401, 403 (la key decodificada no empieza por `users/{mi-slug}/`), 404.
+
+### DELETE `/storage/me/:key`
+
+Idempotente. 204 sin body. Mismo ownership check que download.
+
+### Endpoints admin `/storage/users/:id/*`
+
+Mismo contrato, requiere `Bearer + checkRole('admin')`. `:id` puede ser Mongo `_id` (24 hex) o `keycloak_id` (UUID); el controller resuelve en ese orden y devuelve 404 si ninguno coincide.
+
+---
+
 ## Siguiente capitulo
 
 - [`../project/adapters.md`](../project/adapters.md): detalle de cada

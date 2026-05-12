@@ -4,9 +4,12 @@ import { AppRouter } from '#presentation/bootstrap/app-router';
 import { App } from '#presentation/bootstrap/app';
 import { UserRouter } from '#presentation/user/user.router';
 import { UserRolesRouter } from '#presentation/user-roles/user-roles.router';
+import { UserStorageRouter } from '#presentation/user-storage/user-storage.router';
 import { AuthRouter } from '#presentation/auth/auth.router';
 import { InMemoryEventBus } from '#infrastructure/events/in-memory-event-bus';
+import { UserQueryRepository } from '#infrastructure/mongodb/repositories/user.query.repository';
 import type { IamPort } from '#domain/auth/iam.port';
+import type { StoragePort } from '#domain/shared/storage/storage.port';
 import type { LoggerPort } from '#domain/shared/logger/logger.port';
 
 const noopLogger: LoggerPort = {
@@ -26,6 +29,7 @@ const noopLogger: LoggerPort = {
  */
 export interface BuildTestAppOptions {
   adminEmailPatterns?: ReadonlyArray<string>;
+  storage?: StoragePort;
 }
 
 export function buildTestApp(iam: IamPort, options: BuildTestAppOptions = {}): Application {
@@ -40,7 +44,19 @@ export function buildTestApp(iam: IamPort, options: BuildTestAppOptions = {}): A
     adminEmailPatterns: options.adminEmailPatterns ?? [],
     logger: noopLogger,
   });
-  const appRouter = new AppRouter({ userRouter, userRolesRouter, authRouter });
+  const userStorageRouter = options.storage
+    ? new UserStorageRouter({
+        jwtMiddleware,
+        storage: options.storage,
+        userQuery: new UserQueryRepository(),
+      })
+    : undefined;
+  const appRouter = new AppRouter({
+    userRouter,
+    userRolesRouter,
+    authRouter,
+    userStorageRouter,
+  });
   return new App({ appRouter, logger: noopLogger }).getExpressApp();
 }
 

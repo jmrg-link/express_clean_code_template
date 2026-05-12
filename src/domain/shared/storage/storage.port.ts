@@ -6,9 +6,10 @@
  *
  * Operaciones cubiertas:
  *   - listObjects: para admin/dashboards.
- *   - getSignedDownloadUrl: para entregar URLs firmadas al cliente.
- *   - putObject / deleteObject: para subidas administrativas (no usadas en
- *     este v3, dejadas como contrato abierto).
+ *   - getSignedDownloadUrl: presigned GET para que el cliente descargue.
+ *   - getSignedUploadUrl: presigned PUT para uploads directos cliente→storage
+ *     (la API no proxa bytes; mejor para archivos grandes y para escalabilidad).
+ *   - putObject / deleteObject: subidas y borrados desde el servidor.
  */
 
 export interface StorageObject {
@@ -35,6 +36,20 @@ export interface ListObjectsInput {
 export interface StoragePort {
   listObjects(input?: ListObjectsInput): Promise<ListObjectsResult>;
   getSignedDownloadUrl(key: string, expiresInSeconds?: number): Promise<string>;
+  /**
+   * Genera una URL presigned para `PUT` directo del cliente al storage.
+   *
+   * @param key - Key destino (debe ser construida por `StorageKeyBuilder`).
+   * @param contentType - MIME que el cliente declarará en el `Content-Type`
+   *   header del PUT. Tiene que coincidir exactamente con el firmado para
+   *   que S3 acepte el upload.
+   * @param expiresInSeconds - TTL del URL firmado. Default 900 (15 min).
+   */
+  getSignedUploadUrl(
+    key: string,
+    contentType: string,
+    expiresInSeconds?: number,
+  ): Promise<string>;
   putObject(key: string, body: Buffer | Uint8Array, contentType?: string): Promise<void>;
   deleteObject(key: string): Promise<void>;
 }

@@ -40,18 +40,18 @@ export class S3StorageAdapter implements StoragePort {
 
   public static create(logger: LoggerPort): S3StorageAdapter {
     if (!env.s3.isConfigured || !env.s3.bucket) {
-      throw CustomError.internal(
-        'S3 is not configured: missing AWS_S3_BUCKET / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY',
-      );
+      throw CustomError.internal('S3 is not configured: missing AWS_S3_BUCKET');
     }
     const config: S3ClientConfig = {
       region: env.s3.region,
-      credentials: {
-        accessKeyId: env.s3.accessKeyId!,
-        secretAccessKey: env.s3.secretAccessKey!,
-      },
       forcePathStyle: env.s3.forcePathStyle,
     };
+    if (env.s3.accessKeyId && env.s3.secretAccessKey) {
+      config.credentials = {
+        accessKeyId: env.s3.accessKeyId,
+        secretAccessKey: env.s3.secretAccessKey,
+      };
+    }
     if (env.s3.endpoint) config.endpoint = env.s3.endpoint;
 
     const client = new S3Client(config);
@@ -98,6 +98,41 @@ export class S3StorageAdapter implements StoragePort {
     } catch (err) {
       this.logger.error('S3 signed url generation failed', { key, error: (err as Error).message });
       throw CustomError.badGateway('Storage signed-url generation failed');
+    }
+  }
+
+  /**
+   * Genera una URL prefirmada para PUT directo cliente→S3.
+   *
+   * @param key - Clave S3 ya validada / construida por `StorageKeyBuilder`.
+   * @param contentType - MIME que el cliente declarará en el header
+   *   `Content-Type` del PUT. Queda firmado en la URL: cualquier diferencia
+   *   provoca 403 desde S3.
+   * @param expiresInSeconds - TTL en segundos. Se clampa a `[60, 900]` para
+   *   limitar el blast radius si la URL se filtra. Default 900.
+   * @returns URL prefirmada válida durante el TTL acotado.
+   * @throws {CustomError} 502 si el SDK falla al firmar.
+   */
+  public async getSignedUploadUrl(
+    key: string,
+    contentType: string,
+    expiresInSeconds = 900,
+  ): Promise<string> {
+    const expiresIn = Math.min(900, Math.max(60, expiresInSeconds));
+    try {
+      const cmd = new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ContentType: contentType,
+      });
+      return await getSignedUrl(this.client, cmd, { expiresIn });
+    } catch (err) {
+      this.logger.error('S3 signed upload url generation failed', {
+        key,
+        contentType,
+        error: (err as Error).message,
+      });
+      throw CustomError.badGateway('Storage signed upload url generation failed');
     }
   }
 

@@ -15,6 +15,7 @@ import { App } from '#presentation/bootstrap/app';
 import { Server } from '#presentation/bootstrap/server';
 import { UserRouter } from '#presentation/user/user.router';
 import { UserRolesRouter } from '#presentation/user-roles/user-roles.router';
+import { UserStorageRouter } from '#presentation/user-storage/user-storage.router';
 import { AuthRouter } from '#presentation/auth/auth.router';
 import { StorageRouter } from '#presentation/storage/storage.router';
 import type { StoragePort } from '#domain/shared/storage/storage.port';
@@ -53,11 +54,20 @@ async function main(): Promise<void> {
 
   const jwtMiddleware = new JwtMiddleware(iam);
 
+  const userQueryRepo = new UserQueryRepository();
+
   let storage: StoragePort | undefined;
   let storageRouter: StorageRouter | undefined;
+  let userStorageRouter: UserStorageRouter | undefined;
   if (env.s3.isConfigured) {
     storage = S3StorageAdapter.create(logger);
     storageRouter = new StorageRouter({ jwtMiddleware, storage });
+    userStorageRouter = new UserStorageRouter({
+      jwtMiddleware,
+      storage,
+      userQuery: userQueryRepo,
+    });
+    logger.info('User storage endpoints enabled at /storage/me and /storage/users/:id');
   } else {
     logger.warn('S3 not configured: /storage endpoints disabled');
   }
@@ -72,7 +82,13 @@ async function main(): Promise<void> {
     logger,
   });
 
-  const appRouter = new AppRouter({ userRouter, userRolesRouter, authRouter, storageRouter });
+  const appRouter = new AppRouter({
+    userRouter,
+    userRolesRouter,
+    authRouter,
+    storageRouter,
+    userStorageRouter,
+  });
   const app = new App({ appRouter, logger });
   const server = new Server(app.getExpressApp(), logger);
 
@@ -80,7 +96,7 @@ async function main(): Promise<void> {
     await MongoDatabase.connect(logger);
     const reconciler = new BootstrapRoleReconciler(
       iam,
-      new UserQueryRepository(),
+      userQueryRepo,
       new UserCommandRepository(),
       eventBus,
       env.auth.adminEmailPatterns,

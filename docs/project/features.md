@@ -341,6 +341,90 @@ sus tokens.
 
 ---
 
+## user-storage
+
+Subsistema de uploads por usuario con **presigned URLs**: el cliente sube directo al storage; la API solo firma, lista y borra. Doble surface — `me` para el propio usuario y `users/:id` para admins.
+
+### Shape de keys
+
+```
+users/{userSlug}/{category}/{file-slug}-{rand6}.{ext}
+```
+
+- `userSlug` viene del campo `User.slug` (ya slugificado al registrarse).
+- `category` ∈ enum cerrado `avatars | documents | attachments`.
+- `file-slug` se construye con `Slugger.base(filename)` (ASCII estricto, sin `%20`).
+- `rand6` son 6 chars `[a-z0-9]` derivados de `crypto.randomBytes` (anti-colisión).
+- `ext` es la extensión original en minúsculas; vacía si dotfile.
+
+`StorageKeyBuilder.build` (en `src/domain/shared/storage/storage-key.builder.ts`) es la única vía de construir keys — el cliente nunca controla la key.
+
+### Validación por categoría
+
+| Categoría | MIME permitidos | Tamaño máx declarativo |
+|---|---|---|
+| `avatars` | `image/png`, `image/jpeg`, `image/webp` | 2 MiB |
+| `documents` | `application/pdf` | 10 MiB |
+| `attachments` | sin restricción | 50 MiB |
+
+El MIME se valida server-side al pedir el presigned URL (`assertMimeAllowed`). El tamaño es declarativo: el SDK v3 actual no firma `Content-Length` por defecto, por lo que la enforcement dura queda como follow-up (POST-policy o bucket policy).
+
+### Ownership enforcement
+
+- **Self endpoints** (`/storage/me/*`): el controller resuelve `User.slug` desde el JWT (`req.user.id` → `findByKeycloakId`).
+- **Admin endpoints** (`/storage/users/:id/*`): `:id` se interpreta como Mongo `_id` o keycloak sub; el controller resuelve el target user.
+- **Defense in depth**: cada use-case (`GetDownloadUrlUseCase`, `DeleteUserFileUseCase`) re-verifica que la key empieza con `users/{userSlug}/`, no se confía solo en el controller.
+
+### Flujo de upload presigned
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as Client
+  participant API
+  participant UC as UserStorageFacade
+  participant S as StoragePort (S3)
+
+  C->>API: POST /storage/me/upload-url { category, filename, contentType }
+  API->>UC: requestUpload({ userSlug, category, filename, contentType })
+  UC->>UC: Zod + assertMimeAllowed + StorageKeyBuilder.build
+  UC->>S: getSignedUploadUrl(key, contentType, ttl)
+  S-->>UC: presigned PUT URL
+  UC-->>API: { uploadUrl, key, expiresAt }
+  API-->>C: 200 { uploadUrl, key, expiresAt }
+
+  Note over C,S: La API NO ve los bytes
+  C->>S: PUT $uploadUrl  (Content-Type debe coincidir)
+  S-->>C: 200 OK
+
+  C->>API: GET /storage/me
+  API-->>C: 200 { objects: [{ key, size, lastModified }] }
+```
+
+### TTL de presigned URLs
+
+`expiresInSeconds` se clampa a `[60, 900]` segundos en dos capas:
+
+1. Zod en el DTO de presentation.
+2. `S3StorageAdapter.getSignedUploadUrl` (`Math.min(900, Math.max(60, expiresInSeconds))`).
+
+Default 900 s (15 min) — suficiente para uploads de hasta 50 MiB en 3G; limita el blast radius si la URL se filtra.
+
+### Endpoints
+
+Detalle completo en [`../api/reference.md#storage--user-scoped`](../api/reference.md#storage--user-scoped).
+
+| Operación | Self | Admin |
+|---|---|---|
+| Pedir upload-url | `POST /storage/me/upload-url` | `POST /storage/users/:id/upload-url` |
+| Listar | `GET /storage/me` | `GET /storage/users/:id` |
+| Pedir download-url | `GET /storage/me/:key/download-url` | `GET /storage/users/:id/:key/download-url` |
+| Borrar | `DELETE /storage/me/:key` | `DELETE /storage/users/:id/:key` |
+
+`:key` viaja base64url-encoded para acomodar las `/` internas del nombre S3.
+
+---
+
 ## Siguiente capitulo
 
 - [`../api/reference.md`](../api/reference.md): tabla maestra de
