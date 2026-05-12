@@ -42,6 +42,14 @@ export class FakeStorageAdapter implements StoragePort {
     return `fake://signed/${encodeURIComponent(key)}?expires=${expiresInSeconds}`;
   }
 
+  public async getSignedUploadUrl(
+    key: string,
+    contentType: string,
+    expiresInSeconds = 900,
+  ): Promise<string> {
+    return `fake://upload/${encodeURIComponent(key)}?type=${encodeURIComponent(contentType)}&expires=${expiresInSeconds}`;
+  }
+
   public async listObjects(input: ListObjectsInput = {}): Promise<ListObjectsResult> {
     const { prefix = '', maxKeys = 1000, continuationToken } = input;
     const keys = [...this.entries.keys()].filter((k) => k.startsWith(prefix)).sort();
