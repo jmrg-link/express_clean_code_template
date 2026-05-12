@@ -1,5 +1,10 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { z } from 'zod';
+
+dotenv.config({
+  path: `.env.${process.env.NODE_ENV ?? 'local'}`,
+  override: true,
+});
 
 /**
  * Validación runtime de envs, agrupada por subsistema.
@@ -177,9 +182,14 @@ export const env = Object.freeze({
     secretAccessKey: s3.AWS_SECRET_ACCESS_KEY,
     endpoint: s3.AWS_S3_ENDPOINT,
     forcePathStyle: s3.AWS_S3_FORCE_PATH_STYLE,
-    /** El adapter solo se inicializa si tenemos credenciales completas. */
-    isConfigured:
-      Boolean(s3.AWS_S3_BUCKET && s3.AWS_ACCESS_KEY_ID && s3.AWS_SECRET_ACCESS_KEY),
+    /**
+     * El adapter se inicializa con bucket. Las credenciales son opcionales:
+     * si no hay `AWS_ACCESS_KEY_ID/SECRET`, el SDK aplica el default provider
+     * chain (env vars exportadas, profile vía `AWS_PROFILE`, EC2 instance
+     * role). Esto permite local con profile, EC2 con instance role y
+     * LocalStack con keys literales sin tocar código.
+     */
+    isConfigured: Boolean(s3.AWS_S3_BUCKET),
   },
   loki: {
     host: loki.LOKI_HOST,
