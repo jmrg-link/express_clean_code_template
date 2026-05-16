@@ -29,7 +29,7 @@ Workflows prevent broken code from merging, deploy staging instantly, and requir
 └── security.yml              # SAST, dependency audit
 ```
 
-## Branch convention
+## Convención de ramas
 
 | Branch | Purpose | Deploy | Approval |
 |--------|---------|--------|----------|
@@ -669,7 +669,7 @@ Require status checks to pass before merging:
 
 ## Troubleshooting
 
-### Workflow no se ejecuta
+### El workflow no se ejecuta
 
 ```bash
 # 1. Verificar syntax YAML

@@ -2,28 +2,28 @@
 
 > Multi-stage build: deps (install dependencies), build (compile TypeScript), runtime (production image with non-root user).
 
-## What
+## Qué
 
-The Dockerfile defines how to build the Express API container image using a three-stage process.
+El Dockerfile define cómo construir la imagen del contenedor de la API Express usando un proceso de tres etapas.
 
-## Why
+## Por qué
 
-A well-designed image is reproducible, fast to rebuild, secure, and small.
-- Same binary every time
-- Cached layers speed up rebuilds
-- Non-root user limits damage if compromised
-- Multi-stage keeps prod image lean (no build tools)
+Una imagen bien diseñada es reproducible, rápida de reconstruir, segura y pequeña.
+- Mismo binario cada vez
+- El caché de capas acelera reconstrucciones
+- Usuario no-root limita daño si se ve comprometida
+- Multi-etapa mantiene la imagen de producción delgada (sin herramientas de compilación)
 
-## Setup
+## Configuración
 
-Build the image for CI/CD and deployments to staging or production. Guarantees the API runs identically on laptops, EC2, or Kubernetes.
+Construye la imagen para CI/CD y despliegues a staging o producción. Garantiza que la API corra idénticamente en laptops, EC2 o Kubernetes.
 
-## How it helps
+## Cómo ayuda
 
-- **Consistency:** Same Dockerfile for local and CI builds
-- **Performance:** Layer caching reuses stages between builds
-- **Security:** Non-root user, production dependencies only
-- **Size:** ~400MB (alpine) instead of 1.2GB (ubuntu)
+- **Consistencia:** Mismo Dockerfile para builds locales y CI
+- **Performance:** Caché de capas reutiliza etapas entre builds
+- **Seguridad:** Usuario no-root, solo dependencias de producción
+- **Tamaño:** ~400MB (alpine) vs 1.2GB (ubuntu)
 
 ---
 
@@ -45,11 +45,11 @@ FROM node:22-alpine AS deps
 # Alpine es tiny (~5MB) vs ubuntu (~80MB).
 # node:22-alpine ya incluye corepack (pnpm, yarn via package managers).
 #
-# Why node:22?
+# Por qué node:22?
 # - Express 5.2.1 requiere Node >=18. Node 22 es LTS estable (Oct 2024 → Oct 2026).
 # - Mejor performance, mejor soporte de TypeScript.
 #
-# Why Alpine?
+# Por qué Alpine?
 # - Reducida: 45MB imagen base vs 900MB ubuntu
 # - Suficiente: glibc, OpenSSL, musl C library, wget incluidos
 #
@@ -69,12 +69,12 @@ RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 # Habilita corepack (gestor de package managers).
 # Prepara pnpm 10.33.0 y lo activa globalmente.
 #
-# Why pnpm?
+# Por qué pnpm?
 # - Más rápido que npm (symbolic links, monorepo-friendly)
 # - Determinístico: pnpm-lock.yaml exacto
 # - Usado en package.json > "engines": {"npm": "pnpm"}
 #
-# Why RUN en stage deps?
+# Por qué RUN en stage deps?
 # - Corepack + pnpm se cachean. Si package.json no cambia, reutiliza layer.
 ```
 
@@ -312,7 +312,7 @@ docker build -t api:latest .
 
 ---
 
-## Image size breakdown
+## Desglose del tamaño de imagen
 
 ```
 node:22-alpine base           ~45 MB
@@ -326,7 +326,7 @@ TOTAL                          ~400 MB
 
 **Comparativa:**
 
-| Base | Size |
+| Base | Tamaño |
 |---|---|
 | node:22-alpine | 400 MB |
 | node:22-slim | 580 MB |
@@ -337,7 +337,7 @@ TOTAL                          ~400 MB
 
 ---
 
-## Seguridad: best practices aplicadas
+## Seguridad: buenas prácticas aplicadas
 
 | Práctica | Implementado |
 |---|---|
@@ -351,7 +351,7 @@ TOTAL                          ~400 MB
 
 ---
 
-## Troubleshooting
+## Resolución de problemas
 
 | Problema | Causa | Solución |
 |---|---|---|
@@ -363,7 +363,7 @@ TOTAL                          ~400 MB
 
 ---
 
-## Verificar en local
+## Verificación en local
 
 ```bash
 # Build
@@ -387,8 +387,8 @@ docker run -it api:test sh
 
 ## Referencias
 
-- [Dockerfile referencia](https://docs.docker.com/engine/reference/builder/)
-- [Best practices](https://docs.docker.com/develop/dev-best-practices/)
-- [BuildKit syntax](https://docs.docker.com/build/dockerfile/frontend/)
+- [Referencia Dockerfile](https://docs.docker.com/engine/reference/builder/)
+- [Buenas prácticas](https://docs.docker.com/develop/dev-best-practices/)
+- [Sintaxis BuildKit](https://docs.docker.com/build/dockerfile/frontend/)
 - [Node Alpine](https://github.com/nodejs/docker-node/tree/main/22/alpine3.19/Dockerfile)
-- [pnpm performance](https://pnpm.io/benchmarks)
+- [Rendimiento pnpm](https://pnpm.io/benchmarks)

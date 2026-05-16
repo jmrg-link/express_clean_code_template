@@ -110,7 +110,7 @@ interface PaginationMeta {
 
 > Codigo: `src/domain/shared/paginator/pagination.dto.ts:7`.
 
-### Security scheme (Swagger)
+### Esquema de seguridad (Swagger)
 
 ```yaml
 bearerAuth:

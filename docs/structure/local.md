@@ -2,7 +2,7 @@
 
 > Full stack running in local docker-compose. Isolated dev environment with no AWS or external domain dependencies.
 
-## Services
+## Servicios
 
 ```
 localhost:3000   → Express API (Node.js)
@@ -251,7 +251,7 @@ aws s3 ls s3://localstack \
 
 **Nota:** API usa AWS SDK con `AWS_S3_ENDPOINT=http://localhost:4566`, así que presigned URLs apuntan a LocalStack.
 
-## Workflow típico: desarrollo local
+## Flujo típico: desarrollo local
 
 ```bash
 # 1. Clone repo + install

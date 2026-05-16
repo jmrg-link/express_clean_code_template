@@ -2,7 +2,7 @@
 
 > How Swagger is generated and JSDoc convention for documenting endpoints.
 
-## Setup
+## Configuración
 
 **Ubicación:** `src/config/swagger.ts`
 
@@ -203,7 +203,7 @@ router.post('/login', validate(LoginDto), authController.login);
  */
 ```
 
-## Best Practices
+## Buenas prácticas
 
 | Práctica | Razón |
 |---|---|

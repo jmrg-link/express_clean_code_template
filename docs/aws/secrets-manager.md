@@ -16,7 +16,7 @@ Secrets Manager stores passwords and API keys encrypted. Automatically rotate th
 - Inyectar en tasks ECS automáticamente
 - Rotar sin downtime
 
-## Setup inicial
+## Configuración inicial
 
 ### Crear secreto en Secrets Manager
 

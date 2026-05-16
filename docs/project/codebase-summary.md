@@ -52,7 +52,7 @@ src/
 └── main.ts               # Composition root
 ```
 
-## Features implementados
+## Funcionalidades implementadas
 
 ### 1. Autenticación (OIDC + JWT)
 - Keycloak 26.6.1 (jose 6.1.3 para JWT)
@@ -104,7 +104,7 @@ Tres perfiles:
 
 Fail-fast al startup si env var falta o tipo invalido.
 
-## Testing (Vitest)
+## Tests (Vitest)
 
 Ubicación: `test/`
 

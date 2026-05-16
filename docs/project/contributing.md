@@ -255,7 +255,7 @@ chore(deps): bump vitest to 4.0.18
 - **No force-push a `main` o `master`**.
 - **No commit directo a `main`** — siempre PR + review.
 
-### Branch naming
+### Nombrado de ramas
 
 ```
 <type>/<short-slug>
@@ -298,7 +298,7 @@ Regla obligatoria: **si tocas `<area>`, actualizas `docs/<cap>`**.
 
 ---
 
-## Tools diarios
+## Herramientas diarias
 
 | Comando | Cuando |
 |---|---|

@@ -2,29 +2,29 @@
 
 > Firebase Authentication: Google-managed IAM with social login built-in. Alternative or complement to self-hosted Keycloak.
 
-## What
+## Qué
 
-Firebase Authentication is Google's managed authentication service. Supports email/password, Google, Apple, GitHub, anonymous, and custom tokens.
+Firebase Authentication es el servicio de autenticación administrado de Google. Soporta email/password, Google, Apple, GitHub, anónimo y tokens personalizados.
 
-## Why
+## Por qué
 
-Firebase handles:
-- Server management, scaling, backups, and security with zero operations
-- Built-in social login (Google, Apple, GitHub, Facebook, Microsoft)
-- Official SDKs for web, iOS, Android, React Native
-- 50,000 free tokens per month
-- Real-time event listeners for auth state changes
-- Mobile-optimized with offline support and session persistence
+Firebase maneja:
+- Gestión de servidor, escalado, backups y seguridad sin operaciones
+- Login social built-in (Google, Apple, GitHub, Facebook, Microsoft)
+- SDKs oficiales para web, iOS, Android, React Native
+- 50,000 tokens gratis por mes
+- Listeners de eventos en tiempo real para cambios de estado de auth
+- Optimizado para móvil con soporte offline y persistencia de sesión
 
-## Setup
+## Configuración
 
-Use Firebase for:
-- Mobile authentication (iOS/Android) without self-hosted Keycloak
-- Web frontend with social login
-- Reducing operational burden of managing IAM
-- Gradual migration from Keycloak (backend) to Firebase (frontend)
+Usa Firebase para:
+- Autenticación móvil (iOS/Android) sin Keycloak auto-hospedado
+- Frontend web con login social
+- Reducir la carga operativa de manejar IAM
+- Migración gradual de Keycloak (backend) a Firebase (frontend)
 
-## Helps with
+## Ayuda con
 
 - Zero authentication infrastructure to operate
 - 30-minute setup vs 2+ hours for Keycloak
@@ -130,7 +130,7 @@ flowchart TB
 
 ## Setup rápido (30 min)
 
-### 1. Crear Firebase project
+### 1. Crear proyecto Firebase
 
 ```bash
 # Via Firebase Console

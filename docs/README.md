@@ -47,7 +47,7 @@
 
 ---
 
-## Quick start
+## Inicio rápido
 
 1. Pre-requisitos y stack: [`project/foundations.md`](project/foundations.md).
 2. Levantar el stack local: [`structure/operations.md`](structure/operations.md) → seccion

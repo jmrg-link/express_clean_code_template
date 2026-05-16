@@ -1,4 +1,4 @@
-# Testing
+# Tests
 
 ## Qué
 
@@ -271,7 +271,7 @@ export class FakeS3Adapter implements StoragePort {
 }
 ```
 
-## Setup de tests (Vitest config)
+## Configuración de tests (Vitest config)
 
 **Ubicación:** `test/setup.ts`
 

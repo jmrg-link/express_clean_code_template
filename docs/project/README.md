@@ -113,7 +113,7 @@ flowchart LR
     classDef prod fill:#dc2626,stroke:#7f1d1d,color:#fff
 ```
 
-## Quick start
+## Inicio rápido
 
 1. Lee [`workflow.md`](./workflow.md) para entender el flujo de branches y commits.
 2. Copia la checklist de PR de ese mismo archivo antes de crear un PR.

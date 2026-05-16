@@ -1,19 +1,19 @@
-# Workflow — GitHub Actions Pipeline
+# Flujo — Pipeline GitHub Actions
 
-Feature branches go through staging, then production, with tests at each step.
+Las ramas de feature pasan por staging, luego producción, con tests en cada paso.
 
-## Trigger Points
+## Puntos de activación
 
-### Feature Branch → Staging PR
+### Feature branch → PR a staging
 
-**Trigger:** `git push origin feature/slug`
+**Activador:** `git push origin feature/slug`
 
 **Workflows ejecutados:**
-1. `test.yml` — unit + integration tests
+1. `test.yml` — tests unitarios + integración
 2. `lint.yml` — ESLint + Prettier
 3. `security.yml` — trivy, npm audit
 
-**Resultado:** PR pronto para review
+**Resultado:** PR listo para review
 
 **Checklist antes de push:**
 ```bash
@@ -23,9 +23,9 @@ npm run test
 npm run build
 ```
 
-### Staging Branch
+### Rama staging
 
-**Trigger:** Merge PR a `staging`
+**Activador:** Merge PR a `staging`
 
 **Workflows ejecutados:**
 1. `deploy-staging.yml` — auto-deploy a EC2 staging
@@ -43,22 +43,22 @@ npm run build
 
 **Resultado:** Cambios live en `staging.api.example.com`
 
-### Main Branch
+### Rama main
 
-**Trigger:** Merge PR a `main`
+**Activador:** Merge PR a `main`
 
 **Workflows ejecutados:**
-1. `test.yml` (full suite) — coverage, E2E
-2. `lint.yml` — final check
-3. `security.yml` — full scan
+1. `test.yml` (suite completa) — cobertura, E2E
+2. `lint.yml` — verificación final
+3. `security.yml` — escaneo completo
 
-**En espera:** Manual approval para deploy
+**En espera:** Aprobación manual para deploy
 
-**Resultado:** Ready for production if all pass
+**Resultado:** Listo para producción si todos pasan
 
-### Production
+### Producción
 
-**Trigger:** Manual trigger en GitHub UI (Actions → deploy-production → Run workflow)
+**Activador:** Trigger manual en GitHub UI (Actions → deploy-production → Run workflow)
 
 **Workflows ejecutados:**
 1. `deploy-production.yml` — deploy a EC2 prod
@@ -78,20 +78,20 @@ npm run build
 
 **Resultado:** Cambios live en `api.example.com`
 
-## Branch Protection Rules
+## Reglas de protección de ramas
 
-**Main branch:**
-- Require 2 code reviews before merge
-- Require status checks to pass (test, lint, security)
-- Require branches to be up to date
+**Rama main:**
+- Requiere 2 revisiones de código antes de merge
+- Requiere que status checks pasen (test, lint, security)
+- Requiere que ramas estén actualizadas
 
-**Staging branch:**
-- Require 1 code review before merge
-- Require test status check to pass
+**Rama staging:**
+- Requiere 1 revisión de código antes de merge
+- Requiere que status check de test pase
 
-## Status Checks
+## Verificaciones de estado
 
-| Check | Requirement |
+| Check | Requisito |
 |---|---|
 | `test` | Pass (tests ≥75% coverage) |
 | `lint` | Pass (no linting errors) |
@@ -100,7 +100,7 @@ npm run build
 
 Todos deben pasar antes de merge.
 
-## Example: Full Flow
+## Ejemplo: flujo completo
 
 ```
 1. Developer crea feature branch
@@ -142,7 +142,7 @@ Todos deben pasar antes de merge.
     → Live en api.example.com
 ```
 
-## Rollback
+## Reversión
 
 Si algo falla en production:
 
@@ -165,7 +165,7 @@ git push origin fix/critical-issue
 # → Same approval flow para prod
 ```
 
-## Monitoring Deployments
+## Monitoreo de despliegues
 
 ### GitHub UI
 
@@ -173,20 +173,20 @@ git push origin fix/critical-issue
 Actions → workflow run → job details → logs
 ```
 
-### CloudWatch (production)
+### CloudWatch (producción)
 
 ```
 AWS Console → CloudWatch → Logs → /aws/ec2/api-prod
 ```
 
-### Health Check
+### Verificación de salud
 
 ```bash
 curl https://api.example.com/health
 # Expected: 200 OK
 ```
 
-## Troubleshooting
+## Resolución de problemas
 
 ### "Tests fail in CI but pass locally"
 ```bash

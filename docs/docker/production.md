@@ -1,20 +1,20 @@
-# Docker Production
+# Docker Producción
 
-> Profile `production` in docker-compose: EC2 with real Let's Encrypt certificates, AWS S3, and secrets from Secrets Manager.
+> Perfil `production` en docker-compose: EC2 con certificados Let's Encrypt real, AWS S3 y secretos de Secrets Manager.
 
-## Overview
+## Visión general
 
-Production runs with security and reliability in mind:
-- Traefik with real Let's Encrypt certificates
-- AWS S3 for storage (no LocalStack)
-- Secrets fetched from AWS Secrets Manager
-- MongoDB with nightly backups
-- Prometheus and Loki (Grafana accessed via VPN or not exposed)
-- CloudWatch logs and alerting
+Producción corre con seguridad y confiabilidad en mente:
+- Traefik con certificados Let's Encrypt real
+- AWS S3 para storage (sin LocalStack)
+- Secretos fetched de AWS Secrets Manager
+- MongoDB con backups nocturnos
+- Prometheus y Loki (Grafana accedido via VPN o no expuesto)
+- Logs CloudWatch y alertas
 
 ---
 
-## Quick start en EC2 (production)
+## Inicio rápido en EC2 (production)
 
 ```bash
 # 1. SSH a EC2 (private subnet)
@@ -343,7 +343,7 @@ curl http://loki:3100/loki/api/v1/query?query={job%3D%22api%22}
 
 ---
 
-## Security
+## Seguridad
 
 ### Network isolation
 
@@ -386,7 +386,7 @@ curl https://api.example.com/metrics
 
 ---
 
-## Troubleshooting
+## Resolución de problemas
 
 | Problema | Solución |
 |---|---|

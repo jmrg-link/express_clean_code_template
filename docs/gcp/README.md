@@ -2,19 +2,19 @@
 
 > Google Cloud Platform as alternative or complement to AWS. Documentation for evaluation and future multi-cloud strategy.
 
-## What
+## Qué
 
-Google Cloud Platform provides compute (Cloud Run), storage (Cloud Storage), messaging (Pub/Sub), databases (Firestore, Cloud SQL), ML (Vertex AI), and analytics (BigQuery).
+Google Cloud Platform proporciona compute (Cloud Run), almacenamiento (Cloud Storage), mensajería (Pub/Sub), bases de datos (Firestore, Cloud SQL), ML (Vertex AI) y análisis (BigQuery).
 
-## Why
+## Por qué
 
-GCP offers a different pricing model (usage-based, committed discounts), specialized services (BigQuery for analytics, Vertex AI for ML, Firestore for real-time NoSQL), a modern Cloud Console, and a clean gcloud CLI.
+GCP ofrece un modelo de precios diferente (basado en uso, descuentos comprometidos), servicios especializados (BigQuery para analytics, Vertex AI para ML, Firestore para NoSQL real-time), una Cloud Console moderna y un CLI gcloud limpio.
 
-## Setup
+## Configuración
 
-Evaluate GCP costs vs AWS, prepare for multi-cloud, and use GCP's specialized services.
+Evalúa costos GCP vs AWS, prepárate para multi-cloud y usa los servicios especializados de GCP.
 
-## Helps with
+## Ayuda con
 
 - Cost modeling for Cloud Run vs ECS Fargate
 - Service mapping between AWS and GCP
@@ -23,9 +23,9 @@ Evaluate GCP costs vs AWS, prepare for multi-cloud, and use GCP's specialized se
 
 ---
 
-## Current state
+## Estado actual
 
-**Project runs on AWS.** GCP is documented for future evaluation.
+**El proyecto corre en AWS.** GCP está documentado para evaluación futura.
 
 **Stack AWS actual:**
 - Compute: EC2 (manual) → futuro: ECS Fargate
@@ -162,7 +162,7 @@ flowchart TB
 
 ---
 
-## Quick refs
+## Referencias rápidas
 
 **GCP Console:**
 ```

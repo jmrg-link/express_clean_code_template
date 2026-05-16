@@ -57,7 +57,7 @@ flowchart TB
 
 **EC2 Key:** guardado en 1Password, nunca commiteado
 
-## Setup Production
+## Configuración production
 
 ### 1. Lanzar instancia
 
@@ -142,11 +142,11 @@ ALLOWED_ORIGINS=https://api.example.com
 DOMAIN=api.example.com
 ```
 
-## Deployment (CI/CD desde GitHub Actions)
+## Despliegue (CI/CD desde GitHub Actions)
 
 **Trigger:** merge to `main` branch (protected, 2 reviews requeridas)
 
-### Workflow
+### Flujo
 
 ```yaml
 name: Deploy to Production

@@ -32,7 +32,7 @@ sequenceDiagram
     EC2-->>GitHub: Success
 ```
 
-## Setup (one-time)
+## Configuración (una vez)
 
 ### 1. Create OIDC Provider en AWS
 

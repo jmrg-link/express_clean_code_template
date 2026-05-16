@@ -1,10 +1,10 @@
-# GCP Authentication & Authorization
+# Autenticación y autorización GCP
 
-GCP native IAM: service accounts, roles, Workload Identity Federation for GitHub Actions.
+IAM nativo GCP: service accounts, roles, Workload Identity Federation para GitHub Actions.
 
 ---
 
-## GCP IAM Basics
+## Conceptos básicos de IAM en GCP
 
 **IAM = Identity Access Management.**
 
@@ -90,7 +90,7 @@ const storage = new Storage({
 
 **Qué es:** OIDC-based auth. GitHub Actions → GCP sin secrets/keys.
 
-### Setup (una sola vez)
+### Configuración (una sola vez)
 
 ```bash
 PROJECT_ID="my-project"
@@ -176,7 +176,7 @@ jobs:
 
 ---
 
-## Best practices
+## Buenas prácticas
 
 | Práctica | Por qué | Cómo |
 |---|---|---|
@@ -189,7 +189,7 @@ jobs:
 
 ---
 
-## Troubleshooting
+## Resolución de problemas
 
 | Problema | Solución |
 |---|---|
@@ -202,7 +202,7 @@ jobs:
 
 ## Referencias
 
-- [GCP IAM docs](https://cloud.google.com/iam/docs)
+- [Docs IAM GCP](https://cloud.google.com/iam/docs)
 - [Service accounts](https://cloud.google.com/iam/docs/service-accounts)
 - [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
-- [GitHub Actions auth](https://github.com/google-github-actions/auth)
+- [Autenticación GitHub Actions](https://github.com/google-github-actions/auth)

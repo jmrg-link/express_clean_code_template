@@ -1,4 +1,4 @@
-# Testing strategy
+# Estrategia de tests
 
 Estrategia de testing del backend Express 5 hexagonal. Stack:
 **Vitest 4.0.18** + **supertest 7.2.2** + **mongodb-memory-server 11.0.1**
@@ -78,7 +78,7 @@ Definidos en `package.json:44-48`:
 
 ---
 
-## Setup global
+## Configuración global
 
 `test/setup.ts:9-49` se ejecuta antes de cada suite (registrado en
 `vitest.config.ts:8` como `setupFiles`).

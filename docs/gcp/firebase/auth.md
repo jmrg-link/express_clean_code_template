@@ -261,7 +261,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123
 - Todos → Firebase
 - Remove Keycloak container
 
-## Testing
+## Tests
 
 ```typescript
 import { getAuth, connectAuthEmulator } from 'firebase/auth';

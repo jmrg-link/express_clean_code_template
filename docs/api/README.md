@@ -2,34 +2,34 @@
 
 > Express 5 REST API with OpenAPI/Swagger. Base path: `/api/v1`. Authentication: Bearer JWT via Keycloak.
 
-## What
+## Qué
 
-Reference for REST endpoints, request/response schemas, error codes, and auto-generated OpenAPI docs from JSDoc.
+Referencia para endpoints REST, esquemas request/response, códigos de error y docs OpenAPI auto-generados desde JSDoc.
 
-## Why
+## Por qué
 
-A clear API needs living documentation. You need to know:
-- What each endpoint does
-- What parameters it accepts
-- What status codes and data it returns
-- How to authenticate (Bearer JWT)
+Una API clara necesita documentación viva. Necesitas saber:
+- Qué hace cada endpoint
+- Qué parámetros acepta
+- Qué status codes y datos devuelve
+- Cómo autenticarse (Bearer JWT)
 
-Without this, frontend and mobile integrations are guesswork.
+Sin esto, las integraciones frontend y mobile son adivinanza.
 
-## Setup
+## Configuración
 
-- New developers discover endpoints quickly
-- Frontend teams know exactly which parameters to pass
-- Error cases are documented
-- CI/CD can validate API changes in PRs
-- Mobile teams can generate SDKs from OpenAPI
+- Nuevos desarrolladores descubren endpoints rápidamente
+- Los equipos frontend saben exactamente qué parámetros pasar
+- Los casos de error están documentados
+- CI/CD puede validar cambios API en PRs
+- Los equipos mobile pueden generar SDKs desde OpenAPI
 
-## Features
+## Características
 
-- **Interactive:** Swagger UI at `/api/v1/docs` (live, testable)
-- **Type-safe:** Zod schemas in code handle validation and types
-- **Automated:** JSDoc `@swagger` blocks generate OpenAPI JSON
-- **Discoverable:** Full endpoint list with methods, paths, auth requirements
+- **Interactivo:** Swagger UI en `/api/v1/docs` (vivo, testeable)
+- **Type-safe:** Esquemas Zod en código manejan validación y tipos
+- **Automático:** Bloques `@swagger` en JSDoc generan OpenAPI JSON
+- **Descubierto:** Lista completa de endpoints con métodos, paths, requisitos auth
 
 ## Estructura
 
@@ -40,7 +40,7 @@ Without this, frontend and mobile integrations are guesswork.
 | [`reference.md`](./reference.md) | Documentación detallada (legacy) |
 | [`../project/adapters.md`](../project/adapters.md) | Integración Keycloak, JWT, validación |
 
-## Quick start
+## Inicio rápido
 
 **Local (desarrollo):**
 ```bash
@@ -99,7 +99,7 @@ flowchart LR
 /api/v1/metrics          → Prometheus metrics
 ```
 
-**Future versioning strategy:**
+**Estrategia de versionado futuro:**
 - API v2: breaking changes → `/api/v2`
 - Mantener v1 por 2-3 meses (deprecation warning)
 - Clients migran vía header `API-Version: v2` (opcional)
@@ -156,7 +156,7 @@ Todas las respuestas siguen envoltura:
 - `error.code`: código máquina (para frontend switches)
 - `error.details`: array de validation errors (si aplica)
 
-## Status codes y error codes
+## Códigos de estado y códigos de error
 
 | HTTP | Code | Descripción | Cuándo |
 |---|---|---|---|
@@ -264,7 +264,7 @@ curl http://localhost:3000/api/v1/users
 
 Ver [`reference.md`](./reference.md) para detalles completos.
 
-## Testing endpoints
+## Tests de endpoints
 
 **Postman / Insomnia:**
 1. Import OpenAPI spec: `http://localhost:3000/api/v1/spec`

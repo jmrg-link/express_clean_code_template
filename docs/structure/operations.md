@@ -37,7 +37,7 @@ métricas) ver [Observabilidad](../aws/observability.md).
 
 ---
 
-## Quick start (arranque local)
+## Inicio rápido (arranque local)
 
 Workflow end-to-end derivado de los `scripts/*.sh` y los perfiles compose.
 

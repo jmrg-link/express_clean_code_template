@@ -48,7 +48,7 @@ flowchart TB
 - Inbound: 22 (SSH) de IP confiable, 80, 443 (HTTP/HTTPS)
 - Outbound: Todo
 
-## Setup EC2
+## Configuración EC2
 
 ### 1. Lanzar instancia
 

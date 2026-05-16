@@ -2,7 +2,7 @@
 
 > Profile `development` in docker-compose: all services containerized on EC2 with Traefik ACME staging certificates.
 
-## Overview
+## Visión general
 
 Staging on EC2 runs everything in containers: API, MongoDB, Keycloak, observability stack. Traefik uses ACME staging to test certificate automation before production.
 
@@ -14,7 +14,7 @@ Staging on EC2 runs everything in containers: API, MongoDB, Keycloak, observabil
 
 ---
 
-## Quick start en EC2
+## Inicio rápido en EC2
 
 ```bash
 # 1. SSH a EC2
@@ -296,7 +296,7 @@ docker-compose down -v
 
 ---
 
-## Troubleshooting
+## Resolución de problemas
 
 | Problema | Solución |
 |---|---|
@@ -308,7 +308,7 @@ docker-compose down -v
 
 ---
 
-## Deployment en EC2
+## Despliegue en EC2
 
 1. **AMI setup:** Ubuntu 22.04 LTS + Docker + Docker Compose + git
 2. **Security groups:** 80, 443 abiertos. 27017 (MongoDB) solo desde VPC

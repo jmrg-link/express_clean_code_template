@@ -13,7 +13,7 @@
 5. [Keycloak realm `app`](#keycloak-realm-app)
 6. [Dockerfile API](#dockerfile-api)
 7. [Scripts de bootstrap](#scripts-de-bootstrap)
-8. [Quick start](#quick-start)
+8. [Inicio rápido](#inicio-rapido)
 
 ---
 
@@ -462,7 +462,7 @@ chmod 600 "$ACME_FILE"
 
 ---
 
-## Quick start
+## Inicio rápido
 
 Stack completo desde cero:
 
