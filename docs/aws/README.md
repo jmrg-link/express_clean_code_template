@@ -16,6 +16,7 @@ Infraestructura AWS para express-clean-backend: 2 instancias MongoDB self-hosted
 | Path | Tema |
 |---|---|
 | [`mongodb/`](./mongodb/) | MongoDB en EC2 self-hosted: overview, setup, operations |
+| [`keycloak/`](./keycloak/) | Keycloak 26 en EC2 con H2 embedded detrás de Cloudflare proxied. Sin Traefik, sin Let's Encrypt |
 | [`iam.md`](./iam.md) | IAM users, roles, service accounts, MFA, policies |
 | [`s3.md`](./s3.md) | S3 buckets, presigned URLs, lifecycle, encryption |
 | [`ec2.md`](./ec2.md) | EC2 instances generales: AMI, sizing, IMDSv2 |
@@ -149,11 +150,13 @@ Requiere `session-manager-plugin` instalado (`brew install --cask session-manage
 1. ✅ Setup Terraform backend (S3 state + DynamoDB lock + KMS) — phase 01
 2. ✅ VPC + Security Groups + KMS workloads + Flow Logs — phase 02
 3. ✅ MongoDB staging + prod desplegados (EC2 self-hosted, SCRAM auth) — phase 03
-4. ⏳ API Express EC2 + Caddy — phase 04
-5. ⏳ S3 + migración OVH → AWS — phase 05
-6. ⏳ Cloudflare Pages para portfolio Next.js — phase 06
-7. ⏳ DLM snapshots + CloudWatch alarms + billing alert — phase 07
-8. ⏳ Cutover OVH → AWS — phase 08
+4. ✅ Keycloak 26 + DLM backups (EC2 ARM, H2 embedded, CF proxied) — phase kc
+5. ⏳ API Express ECS Fargate ARM + ALB compartido + GitHub Actions OIDC — phase 04
+6. ⏳ S3 + migración OVH → AWS — phase 05
+7. ⏳ Cloudflare Pages para portfolio Next.js — phase 06
+8. ⏳ Observability stack (Loki + Prometheus + Thanos + Grafana en EC2) — phase 07a/b
+9. ⏳ Secrets API + DLM extendido + CW alarms + billing alert — phase 07c
+10. ⏳ Cutover OVH → AWS — phase 08
 
 ## Estado actual del entorno
 
@@ -165,6 +168,8 @@ Requiere `session-manager-plugin` instalado (`brew install --cask session-manage
 | VPC Flow Logs | ✅ | CloudWatch group cifrado con KMS |
 | MongoDB staging | ✅ | EC2 `t4g.micro`, EBS 10 GB, SCRAM auth, sin TLS |
 | MongoDB production | ✅ | EC2 `t4g.small`, EBS 20 GB, SCRAM auth, sin TLS |
+| Keycloak | ✅ | EC2 `t4g.small` compartida staging+prod, H2 embedded, CF proxied termina TLS, SG limitado a CIDRs CF |
+| DLM backups | ✅ | Policy daily 03:00 UTC, 7 snapshots, cubre todos los EBS con tag `Backup true` (Mongo + Keycloak) |
 | Secrets Manager | ✅ | `mongo/staging/admin`, `mongo/prod/admin` (random_password 32 chars) |
 | CloudWatch Log Groups | ✅ | `/mongo/staging`, `/mongo/prod`, `/aws/vpc/main/flow-logs` |
 | IAM user CLI admin | ✅ | `<cli-user>` con policy mínima para SSM port-forward + read secrets |
