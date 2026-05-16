@@ -2,7 +2,7 @@
 
 > Profile `local` in docker-compose: services in containers, API runs on host with hot-reload via `tsx watch`.
 
-## Overview
+## Visión general
 
 Locally, all services run in Docker (MongoDB, Keycloak, Traefik, observability) except the API, which runs on the host. This gives instant hot-reload for source changes.
 
@@ -13,7 +13,7 @@ Locally, all services run in Docker (MongoDB, Keycloak, Traefik, observability) 
 
 ---
 
-## Quick start
+## Inicio rápido
 
 ```bash
 # Terminal 1: Servicios Docker
@@ -323,7 +323,7 @@ docker-compose logs | grep "error"
 
 ---
 
-## Troubleshooting
+## Resolución de problemas
 
 | Problema | Causa | Solución |
 |---|---|---|
@@ -402,7 +402,7 @@ docker-compose rm -f
 
 ---
 
-## Performance tuning
+## Ajustes de rendimiento
 
 **Si Docker es lento (especialmente en Mac/Windows):**
 

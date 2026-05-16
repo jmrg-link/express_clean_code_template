@@ -1,6 +1,6 @@
-# GCP Services
+# Servicios GCP
 
-Relevant GCP services: setup, configuration, AWS to GCP mapping.
+Servicios GCP relevantes: configuración, setup, mapeo AWS a GCP.
 
 ---
 
@@ -12,7 +12,7 @@ Relevant GCP services: setup, configuration, AWS to GCP mapping.
 
 **AWS equiv:** ECS Fargate.
 
-### Setup
+### Configuración
 
 ```bash
 # 1. Build image
@@ -45,7 +45,7 @@ gcloud run services describe api --platform managed --region us-central1
 
 **AWS equiv:** S3.
 
-### Setup
+### Configuración
 
 ```bash
 gsutil mb -l us-central1 gs://app-prod-bucket/
@@ -61,7 +61,7 @@ gsutil lifecycle set lifecycle.json gs://app-prod-bucket/
 
 **AWS equiv:** Secrets Manager.
 
-### Setup
+### Configuración
 
 ```bash
 echo -n "secret-value" | gcloud secrets create KEYCLOAK_CLIENT_SECRET \
@@ -106,7 +106,7 @@ Métricas automáticas en Cloud Run:
 
 **AWS equiv:** DynamoDB.
 
-### Setup
+### Configuración
 
 ```bash
 gcloud firestore databases create --region=us-central1
@@ -130,7 +130,7 @@ const doc = await db.collection('users').doc(userId).get();
 
 **AWS equiv:** Athena + Redshift.
 
-### Setup
+### Configuración
 
 ```bash
 bq mk --dataset app_data

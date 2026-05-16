@@ -64,7 +64,7 @@ sequenceDiagram
     Note over STS: After 1h, credentials expire<br/>automatically revoked
 ```
 
-## Setup paso a paso (one-time)
+## Configuración paso a paso (una vez)
 
 ### Fase 1: Crear OIDC Provider en AWS
 

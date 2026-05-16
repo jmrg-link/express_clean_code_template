@@ -2,37 +2,37 @@
 
 > Docker Compose v2 with three profiles: `local` (hot-reload on host), `development` (containerized on EC2), `production` (EC2 with real ACME).
 
-## What
+## Qué
 
-Docker Compose orchestrates API, MongoDB, Keycloak, Traefik, and observability services across three profiles: local development, staging, and production.
+Docker Compose orquesta los servicios API, MongoDB, Keycloak, Traefik y observabilidad en tres perfiles: desarrollo local, staging y producción.
 
-## Why
+## Por qué
 
-Services run identically across laptop, staging, and production using pinned versions. The Dockerfile and compose config are the single source of truth. No "works on my machine" surprises.
+Los servicios corren idénticamente en laptop, staging y producción usando versiones fijas. El Dockerfile y la configuración de compose son la única fuente de verdad. No hay sorpresas de "funciona en mi máquina".
 
-## Setup
+## Configuración
 
-Three profiles handle different deployment models:
-- `local`: services in containers, API hot-reloads on host
-- `development`: all containerized on EC2, ACME staging certs
-- `production`: EC2 with real Let's Encrypt certs and AWS Secrets Manager
+Tres perfiles manejan diferentes modelos de despliegue:
+- `local`: servicios en contenedores, API con hot-reload en host
+- `development`: todo containerizado en EC2, certs ACME staging
+- `production`: EC2 con certs Let's Encrypt real y AWS Secrets Manager
 
-## How it helps
+## Cómo ayuda
 
-- **Consistency:** Same image and config everywhere
-- **Isolation:** Three internal networks (proxy, backend, monitoring) with no port conflicts
-- **DNS:** Services find each other by hostname
-- **State:** Named volumes persist data across restarts
-- **Visibility:** Prometheus, Grafana, and Loki included in all profiles
+- **Consistencia:** Misma imagen y configuración en todos lados
+- **Aislamiento:** Tres redes internas (proxy, backend, monitoring) sin conflictos de puertos
+- **DNS:** Los servicios se encuentran entre sí por hostname
+- **Estado:** Los volúmenes con nombre persisten datos entre reinicios
+- **Visibilidad:** Prometheus, Grafana y Loki incluidos en todos los perfiles
 
-## Components
+## Componentes
 
-- 3 profiles with different networking and secrets strategies
-- Services: API, MongoDB, Keycloak, Traefik, optional observability stack
-- 3 isolated networks: proxy, backend, monitoring
-- Persistent named volumes with backup policies
-- HEALTHCHECK on all services with dependency conditions
-- Traefik 3.7 with OIDC plugin and ACME (staging or production)
+- 3 perfiles con diferentes estrategias de redes y secretos
+- Servicios: API, MongoDB, Keycloak, Traefik, stack observabilidad opcional
+- 3 redes aisladas: proxy, backend, monitoring
+- Volúmenes nombrados persistentes con políticas de backup
+- HEALTHCHECK en todos los servicios con condiciones de dependencia
+- Traefik 3.7 con plugin OIDC y ACME (staging o producción)
 
 ## Estructura
 
@@ -256,7 +256,7 @@ docker-compose --profile production up -d
 
 **Nota:** `docker-compose` (Compose v2) es alias de `docker compose`. No usar `docker-compose` legacy (Python).
 
-## Workflows comunes
+## Flujos de trabajo comunes
 
 ### Desarrollo local (con hot-reload)
 
@@ -290,7 +290,7 @@ docker-compose --profile development up -d
 curl https://api.staging.example.com/health/live
 ```
 
-### Production en EC2
+### Producción en EC2
 
 ```bash
 # 1. En EC2
@@ -309,7 +309,7 @@ docker-compose logs -f api
 curl https://api.example.com/health/ready
 ```
 
-## Troubleshooting
+## Resolución de problemas
 
 | Problema | Solución |
 |---|---|
@@ -321,7 +321,7 @@ curl https://api.example.com/health/ready
 | **"ACME certificate not renewing"** | Ver `docker logs traefik \| grep acme`. Verificar `LE_CA_SERVER` en `.env` |
 | **"Healthcheck failing"** | `docker-compose logs <service>`. Comprobar `healthcheck` condition en compose |
 
-## Performance & Optimización
+## Rendimiento y optimización
 
 **Dockerfile (multi-stage):**
 - 3 stages: deps, build, runtime

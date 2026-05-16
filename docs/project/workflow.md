@@ -1,4 +1,4 @@
-# Workflow — Git, Commits, PR
+# Flujo — Git, commits, PRs
 
 Define el flujo de desarrollo desde checkout de rama hasta merge a main y deployment a producción.
 

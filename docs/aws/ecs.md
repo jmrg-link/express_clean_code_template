@@ -232,7 +232,7 @@ aws application-autoscaling put-scaling-policy \
 
 Si CPU promedio > 70%, AWS crea task. Si < 70%, destruye (con cooldown).
 
-## Deployment Strategies
+## Estrategias de despliegue
 
 ### Rolling (recomendado)
 
@@ -275,7 +275,7 @@ aws elbv2 modify-rule \
 # 5. Si algo anda mal, switchear atrás
 ```
 
-## Deployment via CLI
+## Despliegue vía CLI
 
 ```bash
 # 1. Build imagen local

@@ -1,4 +1,4 @@
-# Features
+# Funcionalidades
 
 Cuatro features documentados: **auth**, **user**, **storage**, **audit**.
 Por feature: entidades, DTOs, use-cases, eventos, errores específicos y

@@ -1,32 +1,32 @@
 # Infraestructura
 
-## What
+## Qué
 
-Documentation for three deployment environments: local (localhost), development (EC2 staging), and production (EC2 production).
+Documentación para tres entornos de despliegue: local (localhost), desarrollo (EC2 staging) y producción (EC2 production).
 
-## Why
+## Por qué
 
-Each environment has different configuration (database, Keycloak URL, domain). Developers need to know where changes run and how they flow to production.
+Cada entorno tiene diferente configuración (base de datos, URL Keycloak, dominio). Los desarrolladores necesitan saber dónde corren los cambios y cómo fluyen a producción.
 
-## Setup
+## Configuración
 
-Three separate environments let you:
-- Reproduce production issues locally
-- Test changes on staging before release
-- Understand infrastructure layout
-- Debug connectivity between services
+Tres entornos separados te permiten:
+- Reproducir issues de producción localmente
+- Probar cambios en staging antes de release
+- Entender la topología de infraestructura
+- Debuggear conectividad entre servicios
 
-## Included
+## Incluido
 
-- **Local:** Full stack in docker-compose, no AWS
-- **Development:** Production-like setup on EC2 for testing
-- **Production:** Real Let's Encrypt certificates and AWS integrations
+- **Local:** Stack completo en docker-compose, sin AWS
+- **Desarrollo:** Setup similar a producción en EC2 para testing
+- **Producción:** Certificados Let's Encrypt reales e integraciones AWS
 
-Documentation covers:
-- Components in each environment (API, database, proxy, monitoring)
-- Environment variables
-- Request flow (client → Traefik → API → database)
-- Architecture diagrams
+La documentación cubre:
+- Componentes en cada entorno (API, base de datos, proxy, monitoring)
+- Variables de entorno
+- Flujo de requests (cliente → Traefik → API → database)
+- Diagramas de arquitectura
 
 ## Estructura
 
