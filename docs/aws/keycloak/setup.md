@@ -74,7 +74,7 @@ CF dashboard → Reglas → Reglas de página → Crear:
 - URL: `kc*.<domain>/*`
 - Setting: `SSL` → `Flexible`
 
-Sin esto, el resto de la zona sigue en `Full` (o el modo que tenga el portfolio)
+Sin esto, el resto de la zona sigue en `Full` (o el modo que tenga la zona)
 y CF intentaría hablar HTTPS al origin, que solo expone HTTP.
 
 ### 2. WAF managed rules exception
