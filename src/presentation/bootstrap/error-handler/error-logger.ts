@@ -38,18 +38,31 @@ export class ErrorLogger {
 
   public validation(requestPath: string, fields: unknown): void {
     const tag = colors.yellow('[VALIDATION 400]');
-    this.logger.warn(`${tag} ${requestPath}`, { path: requestPath, fields });
+    this.logger.warn(`${tag} ${requestPath}`, {
+      statusCode: 400,
+      path: requestPath,
+      fields,
+    });
   }
 
   public mongo(requestPath: string, kind: string, message: string): void {
+    const statusCode = kind === 'DUPLICATE 11000' ? 409 : 400;
     const tag = colors.cyan(`[MONGO ${kind}]`);
-    this.logger.warn(`${tag} ${requestPath} → ${message}`, { path: requestPath, kind });
+    this.logger.warn(`${tag} ${requestPath} → ${message}`, {
+      statusCode,
+      path: requestPath,
+      kind,
+    });
   }
 
   public unhandled(requestPath: string, err: unknown): void {
     const tag = colors.magenta.bold('[UNHANDLED 500]');
     const msg = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
-    this.logger.error(`${tag} ${requestPath} → ${msg}`, { path: requestPath, stack });
+    this.logger.error(`${tag} ${requestPath} → ${msg}`, {
+      statusCode: 500,
+      path: requestPath,
+      stack,
+    });
   }
 }
