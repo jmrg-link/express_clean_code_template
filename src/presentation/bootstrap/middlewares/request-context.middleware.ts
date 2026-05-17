@@ -35,7 +35,7 @@ export class RequestContextMiddleware {
       req.logger = new RequestContextLoggerDecorator(this.baseLogger, {
         requestId,
         method: req.method,
-        route: req.path,
+        path: req.path,
       });
       next();
     };
