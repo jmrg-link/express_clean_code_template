@@ -19,6 +19,21 @@ import type { LoggerPort, LogMeta } from '#domain/shared/logger/logger.port';
 export class WinstonLoggerAdapter implements LoggerPort {
   private constructor(private readonly logger: WinstonLogger) {}
 
+  /**
+   * Construye el logger Winston con transports Console + Loki (si LOKI_HOST set).
+   *
+   * @remarks
+   * Política de labels Loki — baja cardinalidad obligatoria. Labels permitidos
+   * como dimensiones: `{app, env}`. Nunca añadir requestId, userId, route,
+   * statusCode, ip como label estático: explotan el TSDB de Loki. Esos campos
+   * van en el cuerpo JSON via `request-context.decorator.ts` y se queryan con
+   * `| json | <campo>="<valor>"` en LogQL.
+   *
+   * El `LokiTransport` recibe su propio `format: winston.format.json()` para
+   * serializar el info object como JSON puro top-level. Sin esto, el transport
+   * concatena `message + JSON.stringify(meta)` en una string text-style que
+   * rompe `| json` en Loki (JSONParserErr al 100%).
+   */
   public static async create(): Promise<WinstonLoggerAdapter> {
     const { combine, timestamp, printf, colorize, json, errors } = winston.format;
 
@@ -39,6 +54,15 @@ export class WinstonLoggerAdapter implements LoggerPort {
 
     if ((env.server.isProduction || env.server.isStaging) && env.loki.host) {
       const LokiTransport = (await import('winston-loki')).default;
+      const lokiErrorThrottle = ((): ((err: Error) => void) => {
+        let lastErrAt = 0;
+        return (err: Error) => {
+          if (Date.now() - lastErrAt < 60_000) return;
+          lastErrAt = Date.now();
+          process.stderr.write(`[loki] push failed: ${err.message}\n`);
+        };
+      })();
+
       transports.push(
         new LokiTransport({
           host: env.loki.host,
@@ -49,6 +73,9 @@ export class WinstonLoggerAdapter implements LoggerPort {
           json: true,
           batching: true,
           interval: 5,
+          timeout: 30_000,
+          format: winston.format.json(),
+          onConnectionError: lokiErrorThrottle,
         }) as unknown as winston.transport,
       );
     }

@@ -35,7 +35,6 @@ flowchart TB
   admin([Admin · MacBook])
 
   subgraph cf[Cloudflare]
-    pages[Pages · portfolio Next.js]
     dns[DNS zone <your-domain.tld>]
     proxy[Proxy WAF + DDoS · api.*]
   end
@@ -153,7 +152,7 @@ Requiere `session-manager-plugin` instalado (`brew install --cask session-manage
 4. ✅ Keycloak 26 + DLM backups (EC2 ARM, H2 embedded, CF proxied) — phase kc
 5. ⏳ API Express ECS Fargate ARM + ALB compartido + GitHub Actions OIDC — phase 04
 6. ⏳ S3 + migración OVH → AWS — phase 05
-7. ⏳ Cloudflare Pages para portfolio Next.js — phase 06
+7. ⏳ Cloudflare Pages para frontend del proyecto — phase 06
 8. ⏳ Observability stack (Loki + Prometheus + Thanos + Grafana en EC2) — phase 07a/b
 9. ⏳ Secrets API + DLM extendido + CW alarms + billing alert — phase 07c
 10. ⏳ Cutover OVH → AWS — phase 08

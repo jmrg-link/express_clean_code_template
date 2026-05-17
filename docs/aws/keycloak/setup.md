@@ -74,7 +74,7 @@ CF dashboard → Reglas → Reglas de página → Crear:
 - URL: `kc*.<domain>/*`
 - Setting: `SSL` → `Flexible`
 
-Sin esto, el resto de la zona sigue en `Full` (o el modo que tenga el portfolio)
+Sin esto, el resto de la zona sigue en `Full` (o el modo que tenga la zona)
 y CF intentaría hablar HTTPS al origin, que solo expone HTTP.
 
 ### 2. WAF managed rules exception
@@ -85,15 +85,31 @@ CF dashboard → Seguridad → WAF → Reglas administradas → Agregar excepci�
 - Expresión: `(http.host eq "kc.<domain>") or (http.host eq "kc-staging.<domain>")`
 - Acción: `Omitir todas las reglas restantes`
 
-### 3. Super Bot Fight Mode
+### 3. Super Bot Fight Mode + JavaScript Detection
 
-CF dashboard → Seguridad → Bots → Configurar protección → setting
-**Definitivamente automatizado**: `Permitir`.
+CF dashboard → Seguridad → Bots:
 
-Sin esto, clientes HTTP automáticos (curl, librerías HTTP server-side) reciben
-403 con header `cf-mitigated: challenge`. Una vez phase-04 (API ECS) esté
-operativa conviene migrar este bypass a una WAF Custom Rule por hostname para
-no exponer otros subdominios.
+- Configurar protección → setting **Definitivamente automatizado**: `Permitir`.
+- **Detecciones de JavaScript**: `OFF`.
+
+Sin esto, clientes HTTP automáticos (curl, librerías HTTP server-side) y los
+flujos backchannel API→KC reciben 403 con header `cf-mitigated: challenge`.
+La detección JavaScript intenta validar mediante ejecución JS en el cliente, lo
+que es imposible para una llamada server-to-server.
+
+### 4. WAF Custom Rule por hostname
+
+CF dashboard → Seguridad → WAF → **Reglas personalizadas** (NO `Reglas
+administradas`) → Crear regla:
+
+- Nombre: `api-to-kc-skip-sbfm`
+- Expresión: `(http.host eq "kc.<domain>") or (http.host eq "kc-staging.<domain>")`
+- Acción: `Omitir` (Skip)
+- Componentes a omitir: **Super Bot Fight Mode** + **Todas las reglas administradas**
+
+Esta es la diferencia importante: las exenciones de `Reglas administradas` solo
+omiten WAF Managed Rules, NO Super Bot Fight Mode. SBFM solo se puede saltar
+desde una Custom Rule.
 
 ## Smoke test
 
@@ -136,5 +152,7 @@ Esperado:
 | `terraform plan` falla `kms_key_id is an invalid ARN` en `aws_ebs_volume` | EBS espera ARN, no key ID | Usar `var.kms_workloads_arn` (no `_id`) |
 | KC container restart loop, log `Disabled option: '--override'` | Flag no válida en KC 26 | Quitar `--override` del compose. `KC_DB_IMPORT_STRATEGY=IGNORE_EXISTING` ya cubre el caso |
 | `client_credentials` devuelve `500 unknown_error` con log `Failed to decode URL ...%=... to UTF-8` | El client_secret contiene secuencia ilegal de URL-encoding (`%` no seguido de 2 hex) | Regenerar el secret desde la UI de KC (alfanumérico por defecto) y sincronizar a Secrets Manager. Excluir `%` y `=` de `override_special` en `random_password` |
-| `curl` devuelve `HTTP/2 403` con `cf-mitigated: challenge` | Super Bot Fight Mode | Setting `Definitivamente automatizado = Permitir` |
+| `curl` devuelve `HTTP/2 403` con `cf-mitigated: challenge` | Super Bot Fight Mode | WAF Custom Rule skip SBFM por hostname + `Detecciones de JavaScript` OFF |
 | `curl https://kc-staging...` devuelve `525 SSL handshake fail` | CF en modo `Full` o `Full (strict)` intenta HTTPS al origen | Page Rule SSL → Flexible para `kc*.<domain>/*` |
+| API consumidora recibe `<!DOCTYPE html><Just a moment>...` en lugar de token JSON | SBFM bloquea backchannel server-to-server | WAF Custom Rule (Reglas personalizadas, NO managed) skip SBFM + JavaScript Detection OFF |
+| Login API devuelve `401 Invalid token: missing subject` | Realm importado sin `basic` scope asignado al client → JWT sin `sub` | KC admin → Clients → `app-api` → tab Client scopes → Add client scope `basic` como Default |

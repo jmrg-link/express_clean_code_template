@@ -38,7 +38,7 @@ flowchart LR
 | **Sin puerto 443 al mundo** | El SG ingress en 80 está restringido a CIDRs Cloudflare (data source `cloudflare_ip_ranges`). |
 | **H2 embedded** | Sin requisito HA. Backup via DLM snapshot + `kc.sh export` ad-hoc del realm a JSON. Recreación en <5 min desde JSON si corrupción del fichero. |
 | **Realms separados** | `app-staging.json` y `app-prod.json` importados al primer boot via `--import-realm`. Cambios en runtime no se sobrescriben (`KC_DB_IMPORT_STRATEGY=IGNORE_EXISTING`). |
-| **SSL/TLS mode Flexible solo en `kc.*`** | Page Rule específica para los subdominios de Keycloak. Resto de la zona sigue en `Full` para no romper el portfolio y otros servicios. |
+| **SSL/TLS mode Flexible solo en `kc.*`** | Page Rule específica para los subdominios de Keycloak. Resto de la zona conserva su modo previo para no afectar otros servicios bajo el mismo apex. |
 
 ## Cobertura DLM
 

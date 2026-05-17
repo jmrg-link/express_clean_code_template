@@ -182,11 +182,48 @@ Causas comunes:
 
 ### `curl` recibe 403 con `cf-mitigated: challenge`
 
-Super Bot Fight Mode bloquea el cliente. Opciones:
+Super Bot Fight Mode bloquea el cliente. Opciones por orden de preferencia:
 
-- Añadir header `-A "Mozilla/5.0"` (workaround puntual).
-- Cambiar Bots config → `Definitivamente automatizado = Permitir` (afecta toda la zona).
-- Crear WAF Custom Rule por hostname para bypass dirigido (preferido).
+- Crear **WAF Custom Rule por hostname** (Reglas personalizadas, NO Reglas administradas) con acción `Skip` marcando `Super Bot Fight Mode`. Aplica de forma quirúrgica solo a `kc.*`.
+- Desactivar `Detecciones de JavaScript` en CF Bots config (necesario también para flujos backchannel server-to-server donde el cliente no ejecuta JS).
+- Añadir header `-A "Mozilla/5.0"` (workaround puntual para curl manual).
+
+Nota: las **excepciones a Reglas administradas NO omiten SBFM**. Solo desde
+una Custom Rule se puede saltar SBFM explícitamente.
+
+### API consumidora recibe HTML CF en vez de JSON al pedir token
+
+Síntoma típico en backend que llama a `/realms/<realm>/protocol/openid-connect/token`:
+
+```
+Failed to get admin token: <!DOCTYPE html><html ...><title>Just a moment...</title>
+```
+
+Causa: SBFM con JavaScript challenge intercepta la request. El backend no puede
+ejecutar JS para resolver el challenge.
+
+Fix permanente:
+
+1. WAF Custom Rule skip SBFM para hosts del realm KC.
+2. Bots → `Detecciones de JavaScript = OFF`.
+3. (Opcional) `Definitivamente automatizado = Permitir` para toda la zona, aunque la Custom Rule es preferible.
+
+### Login devuelve 401 `Invalid token: missing subject`
+
+Causa: el cliente Keycloak (`app-api`) no tiene el scope `basic` asignado como
+Default, así que el access token emitido por el password grant no incluye el
+claim `sub`. La API rechaza el token al no encontrar el subject.
+
+Fix:
+
+1. KC admin UI → realm correspondiente → `Clients` → `app-api`.
+2. Tab `Client scopes`.
+3. `Add client scope` → marcar `basic` → `Add` con tipo `Default`.
+
+Repetir por cada realm afectado (`app-staging`, `app-prod`).
+
+Tras añadirlo, el siguiente login emite tokens con `sub` (UUID del usuario en
+KC). No requiere reiniciar el servidor KC.
 
 ### `curl` recibe 525 SSL handshake fail
 
