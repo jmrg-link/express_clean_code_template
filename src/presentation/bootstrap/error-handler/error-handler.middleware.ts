@@ -25,7 +25,7 @@ class BodyParseErrorHandler extends ErrorHandler {
   public handle(err: unknown, req: Request, res: Response, nxt: NextFunction): void {
     if (BodyParseErrorHandler.isBodyParseError(err)) {
       const detail = err.message.slice(0, 200);
-      this.elog.client(new ClientError(400, 'Malformed request body', { detail }), req.path);
+      this.elog.client(new ClientError(400, 'Malformed request body', { detail }), req);
       res
         .status(400)
         .json(ResponseFormatter.error('Malformed request body', [{ detail }]));
@@ -52,7 +52,7 @@ class ZodErrorHandler extends ErrorHandler {
         field: i.path.join('.'),
         message: i.message,
       }));
-      this.elog.validation(req.path, errors);
+      this.elog.validation(req, errors);
       res.status(400).json(ResponseFormatter.error('Validation error', errors));
       return;
     }
@@ -66,7 +66,7 @@ class ClientErrorHandler extends ErrorHandler {
   }
   public handle(err: unknown, req: Request, res: Response, nxt: NextFunction): void {
     if (err instanceof ClientError) {
-      this.elog.client(err, req.path);
+      this.elog.client(err, req);
       const body = ResponseFormatter.error(err.message);
       const payload = err.details ? { ...body, errors: [err.details] } : body;
       res.status(err.statusCode).json(payload);
@@ -82,7 +82,7 @@ class ServerErrorHandler extends ErrorHandler {
   }
   public handle(err: unknown, req: Request, res: Response, nxt: NextFunction): void {
     if (err instanceof ServerError) {
-      this.elog.server(err, req.path);
+      this.elog.server(err, req);
       res.status(err.statusCode).json(ResponseFormatter.error(err.message));
       return;
     }
@@ -97,7 +97,7 @@ class MongoErrorHandler extends ErrorHandler {
   public handle(err: unknown, req: Request, res: Response, nxt: NextFunction): void {
     if (err instanceof mongoose.mongo.MongoServerError && err.code === 11000) {
       const field = Object.keys((err as { keyPattern?: Record<string, unknown> }).keyPattern ?? {})[0] ?? 'field';
-      this.elog.mongo(req.path, 'DUPLICATE 11000', `field=${field}`);
+      this.elog.mongo(req, 'DUPLICATE 11000', `field=${field}`);
       res.status(409).json(ResponseFormatter.error(`Duplicate value for '${field}'`));
       return;
     }
@@ -106,13 +106,13 @@ class MongoErrorHandler extends ErrorHandler {
         field: e.path,
         message: e.message,
       }));
-      this.elog.mongo(req.path, 'VALIDATION', JSON.stringify(errors));
+      this.elog.mongo(req, 'VALIDATION', JSON.stringify(errors));
       res.status(400).json(ResponseFormatter.error('Validation error', errors));
       return;
     }
     if (err instanceof mongoose.Error.CastError) {
       const msg = `Invalid ${err.path}: ${String(err.value)}`;
-      this.elog.mongo(req.path, 'CAST', msg);
+      this.elog.mongo(req, 'CAST', msg);
       res.status(400).json(ResponseFormatter.error(msg));
       return;
     }
@@ -125,7 +125,7 @@ class FallbackErrorHandler extends ErrorHandler {
     super();
   }
   public handle(err: unknown, req: Request, res: Response, _nxt: NextFunction): void {
-    this.elog.unhandled(req.path, err);
+    this.elog.unhandled(req, err);
     res.status(500).json(ResponseFormatter.error('Internal server error'));
   }
 }
