@@ -385,6 +385,161 @@ TTL monitor borra cada ~60s. Si crece sin parar:
 - Si no existe: re-conectar la API → mongoose re-crea indices al arranque.
 - Aumentar disco si el volumen es legitimo.
 
+---
+
+## Stack de observabilidad — runbook
+
+Operaciones recurrentes sobre la EC2 que aloja Loki + Prometheus + Thanos + Grafana en AWS. Detalles del stack en [Observabilidad](../aws/observability.md).
+
+### Arranque en frío
+
+```bash
+aws ec2 start-instances --region <aws-region> --instance-ids <observability-ec2-id>
+aws ec2 wait instance-running --region <aws-region> --instance-ids <observability-ec2-id>
+
+# Conectar via SSM y levantar el compose
+aws ssm start-session --region <aws-region> --target <observability-ec2-id>
+# dentro:
+cd /opt/observability && sudo docker compose up -d
+docker compose ps
+```
+
+Los 7 contenedores deben pasar a `Up` o `Up (healthy)` en 30-60 s. Si alguno se queda en `Restarting`, ver troubleshooting abajo.
+
+### Parada planificada
+
+```bash
+aws ssm start-session --region <aws-region> --target <observability-ec2-id>
+# dentro:
+cd /opt/observability && sudo docker compose down
+exit
+
+aws ec2 stop-instances --region <aws-region> --instance-ids <observability-ec2-id>
+```
+
+Stop conserva los datos (EBS data + WAL Loki + bloques Prom locales aún no subidos). El bucket S3 sigue intacto.
+
+### Restart del stack sin tocar la EC2
+
+```bash
+# Via SSM:
+sudo docker compose -f /opt/observability/docker-compose.yml restart loki prometheus thanos-sidecar
+sleep 5
+sudo docker compose -f /opt/observability/docker-compose.yml ps
+```
+
+### Túnel SSM admin desde el equipo del operador
+
+```bash
+OBSERVABILITY_INSTANCE_ID=<observability-ec2-id> \
+  ./scripts/ssm-observability.sh -p <your-cli-profile>
+```
+
+Abre `https://127.0.0.1:8443` (Grafana, cert self-signed — aceptar el warning), `http://127.0.0.1:9090` (Prometheus), `http://127.0.0.1:19291` (Thanos query).
+
+Credenciales Grafana:
+
+```bash
+aws secretsmanager get-secret-value \
+  --region <aws-region> --profile <your-cli-profile> \
+  --secret-id observability/grafana-admin \
+  --query SecretString --output text
+```
+
+### Rotar password admin Grafana
+
+```bash
+# Via SSM:
+sudo openssl rand -hex 16 | sudo tee /etc/grafana/admin-password
+sudo chown 472:472 /etc/grafana/admin-password
+sudo chmod 600 /etc/grafana/admin-password
+sudo docker compose -f /opt/observability/docker-compose.yml restart grafana
+
+# Sincronizar al secret (desde el equipo admin con el nuevo valor):
+aws secretsmanager update-secret \
+  --region <aws-region> --profile <your-cli-profile> \
+  --secret-id observability/grafana-admin \
+  --secret-string "<nuevo-valor>"
+```
+
+### Troubleshooting — los logs no llegan a Loki
+
+1. Verificar el SG de la EC2 observability tiene ingress `3100/tcp` desde el SG de origen (API o Mongo).
+2. Comprobar Loki en sí responde:
+
+   ```bash
+   curl -s http://<observability-private-ip>:3100/ready    # debe devolver "ready"
+   ```
+
+3. En el host emisor, mirar el agente:
+   - API ECS: `aws logs tail /ecs/<service-name> --since 5m` y buscar `level=error` que mencione Loki.
+   - Mongo EC2: `journalctl -u promtail -n 50` y `curl -s 127.0.0.1:9080/metrics | grep promtail_target`.
+4. Confirmar la variable `LOKI_HOST` apunta a una URL HTTP completa con puerto en la task definition de la API. Sin esquema `http://` el adapter ignora el push.
+
+### Troubleshooting — Grafana 502 desde el túnel
+
+1. `sudo systemctl is-active caddy` debe ser `active`.
+2. `sudo docker compose -f /opt/observability/docker-compose.yml ps grafana` debe ser `Up (healthy)`.
+3. `curl -sI http://127.0.0.1:3000/api/health` desde la EC2 — si falla, Grafana no arrancó (revisar `docker logs grafana`).
+4. Si todo lo anterior está OK, reiniciar Caddy: `sudo systemctl restart caddy`.
+
+### Troubleshooting — Thanos query en restart loop
+
+Mensaje típico: `unknown long flag '--store'`. La sintaxis vieja se eliminó en v0.41+. La flag correcta es `--endpoint=<host:port>`. Editar el `docker-compose.yml` del stack, redeploy.
+
+Si el sidecar registra `failed to upload block`, comprobar que Prometheus arranca con `min-block-duration == max-block-duration` (ambos `2h`). Sin esa simetría, los bloques quedan corruptos para Thanos.
+
+### Troubleshooting — EBS data lleno
+
+```bash
+sudo df -h /var/lib/observability
+
+# Opciones:
+# 1) Reducir retención local de Prometheus a 7 d:
+#    --storage.tsdb.retention.time=7d en docker-compose, restart prometheus
+# 2) Acelerar el compactor de Loki forzando una corrida manual:
+sudo docker compose -f /opt/observability/docker-compose.yml restart loki
+# 3) Ampliar el EBS data: modify-volume, después extend xfs (xfs_growfs)
+```
+
+### Actualizar dashboards Grafana
+
+El provisioner Grafana lee de `/etc/grafana/dashboards/` con `disableDeletion: true` y `allowUiUpdates: false`. Cualquier edit en la UI se pierde al re-evaluar el provider. El flujo correcto es:
+
+```bash
+# 1. Editar el JSON en el repo
+$EDITOR infra/observability/config/grafana/dashboards/api-logs.json
+
+# 2. Subir al bucket
+aws s3 cp infra/observability/config/grafana/dashboards/api-logs.json \
+  s3://<observability-bucket>/configs/grafana/dashboards/api-logs.json \
+  --region <aws-region>
+
+# 3. Sync al EC2 via SSM
+aws ssm send-command --region <aws-region> \
+  --instance-ids <observability-ec2-id> \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo aws s3 cp s3://<observability-bucket>/configs/grafana/dashboards/api-logs.json /etc/grafana/dashboards/api-logs.json --region <aws-region>","cd /opt/observability && sudo docker compose restart grafana"]'
+```
+
+El restart no siempre es necesario (`updateIntervalSeconds: 30` en el provider), pero es la forma segura de garantizar que el JSON nuevo se recargue. Sin restart, los cambios cosméticos suelen recogerse en < 1 min.
+
+### Troubleshooting — Loki crashea en init compactor
+
+Síntoma: bucle `failed to refresh cached credentials, no EC2 IMDS role found`. Causa típica: el hop limit de IMDSv2 está en `1` y el bridge de Docker ya consume un hop, así que el contenedor no llega.
+
+Fix sin reinicio de la EC2:
+
+```bash
+aws ec2 modify-instance-metadata-options \
+  --region <aws-region> --instance-id <observability-ec2-id> \
+  --http-put-response-hop-limit 2 \
+  --http-tokens required \
+  --http-endpoint enabled
+
+# Después restart de los contenedores que necesiten IMDS:
+sudo docker compose -f /opt/observability/docker-compose.yml restart loki thanos-sidecar thanos-store
+```
 
 ---
 
