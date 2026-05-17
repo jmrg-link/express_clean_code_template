@@ -24,10 +24,10 @@ El backend Express produce logs estructurados (Winston). Mongo escribe a `/var/l
 
 Decisiones que fijan el resto del documento:
 
-- **Una sola EC2 ARM64 (`t4g.small`)** en subnet pública AZ-a, sin EIP, IP efímera vía IGW.
-- **Sin VPC interface endpoints SSM, sin NAT Gateway**: el SG bloquea todo ingress salvo Loki `3100/tcp` desde los SG de API y Mongo. Mismo patrón que el resto de hosts del VPC.
-- **Caddy con `tls internal`** en `127.0.0.1:8443` delante de Grafana — la UI nunca habla HTTP plano, ni siquiera en localhost.
-- **Acceso humano = SSM port-forward**. No hay registro DNS público. No hay ALB. No hay Cloudflare Tunnel.
+- Una sola EC2 ARM64 (`t4g.small`) en subnet pública AZ-a, sin EIP. IP efímera vía IGW.
+- Sin VPC interface endpoints SSM ni NAT Gateway. El SG bloquea todo ingress salvo Loki `3100/tcp` desde los SG de API y Mongo. Mismo patrón que el resto de hosts del VPC.
+- Caddy con `tls internal` en `127.0.0.1:8443` delante de Grafana. La UI nunca habla HTTP plano, ni siquiera en localhost.
+- Acceso humano por SSM port-forward. No hay registro DNS público, no hay ALB, no hay Cloudflare Tunnel.
 
 ---
 
@@ -104,7 +104,7 @@ sequenceDiagram
 | Caddy | `2.8.x` | TLS internal frente a Grafana, sin auth propia | cert self-signed |
 | CloudWatch Agent | system pkg | logs userdata + métricas básicas EC2 | log group `/observability/main` |
 
-Imágenes Docker pineadas en el `docker-compose.yml`. Versiones se promueven con un PR puntual; no hay actualización automática.
+Imágenes Docker pineadas en el `docker-compose.yml`. Las versiones se promueven con un PR puntual, sin actualización automática.
 
 ---
 
@@ -112,17 +112,31 @@ Imágenes Docker pineadas en el `docker-compose.yml`. Versiones se promueven con
 
 ### Logs de la API (Express + Winston → Loki)
 
-`winston-loki` está activado **solo** cuando `NODE_ENV` ∈ {`staging`, `production`} y la variable `LOKI_HOST` apunta a una URL HTTP completa (`http://<observability-ip>:3100`). Si cualquiera de los dos falta, la app sigue escribiendo a stdout y se omite el push.
+`winston-loki` se activa solo cuando `NODE_ENV` ∈ {`staging`, `production`} y `LOKI_HOST` apunta a una URL HTTP completa (`http://<observability-ip>:3100`). Si falta alguno, la app sigue escribiendo a stdout y se omite el push.
 
 | Aspecto | Valor |
 |---|---|
 | Labels Loki | `app`, `env`, `service`, `level` |
 | Batching | sí, intervalo `5 s` |
-| Formato | JSON (parseable con `\| json` en LogQL) |
+| Formato | JSON puro (transport con `format: winston.format.json()` propio) |
+| Timeout request | `30 s` |
+| `onConnectionError` | escribe a `stderr` con throttle interno (máx 1 línea/minuto) |
 | Health checks | filtrados antes de llegar al adapter (Express access middleware) |
-| Errores de push | log a `stderr`, la app sigue |
 
-Política dura de labels: nada de `requestId`, `userId`, `route`, `ip`, `status`. Esos viven en el body JSON. Cardinalidad alta rompe Loki.
+Sobre labels: nada de `requestId`, `userId`, `path`, `ip`, `statusCode` como label estático. Esos viven en el body JSON. La cardinalidad alta rompe el TSDB de Loki.
+
+Los campos top-level del JSON que la app emite consistentemente:
+
+| Campo | Origen | Disponibilidad |
+|---|---|---|
+| `level` | Winston | siempre |
+| `message` | Winston | siempre |
+| `timestamp` | Winston | siempre |
+| `app`, `env`, `service` | labels Loki | siempre (label) |
+| `requestId`, `method`, `path` | `RequestContextLoggerDecorator` | en todo log emitido vía `req.logger.*` |
+| `statusCode` | `ErrorLogger` (todas las ramas del Chain) | en todo log de la cadena de errores (4xx y 5xx) |
+| `fields[]` | `ErrorLogger.validation` | en errores Zod |
+| `kind`, `stack` | `ErrorLogger` | en errores Mongo / unhandled |
 
 ### Logs de MongoDB (mongod.log → Promtail → Loki)
 
@@ -140,7 +154,7 @@ La versión instalada es la última estable que se publicó como binario standal
 
 ### Métricas (Prometheus + Thanos sidecar → S3)
 
-Prometheus corre con `--storage.tsdb.min-block-duration=2h --storage.tsdb.max-block-duration=2h`. Esa simetría es **obligatoria**: Thanos sidecar exige bloques inmutables del mismo tamaño, si no, corrompe los uploads.
+Prometheus corre con `--storage.tsdb.min-block-duration=2h --storage.tsdb.max-block-duration=2h`. Esa simetría hay que mantenerla: Thanos sidecar exige bloques inmutables del mismo tamaño. Si no coinciden, los uploads quedan corruptos.
 
 Scrape jobs declarados:
 
@@ -149,7 +163,7 @@ Scrape jobs declarados:
 - `mongo-staging`, `mongo-prod` — endpoint `:9216` (mongodb_exporter)
 - `node-observability` — `:9100` (node_exporter en la propia EC2)
 
-Hoy buena parte de esos targets están marcados `DOWN` hasta que se desplieguen los exporters. La infraestructura de scrape ya está; ver [Gaps](#gaps).
+Hoy buena parte de esos targets aparecen `DOWN` hasta que se desplieguen los exporters. La infraestructura de scrape ya está. Ver [Gaps](#gaps).
 
 ---
 
@@ -170,7 +184,7 @@ Tres túneles paralelos:
 | `http://127.0.0.1:9090` | `127.0.0.1:9090` | Prometheus UI |
 | `http://127.0.0.1:19291` | `127.0.0.1:19291` | Thanos query UI |
 
-**Importante**: el certificado interno de Caddy se emite para `127.0.0.1` y `localhost`. Conectar con `localhost:8443` u `127.0.0.1:8443` funciona; cualquier otro hostname (IP remota, alias `/etc/hosts`) da `ERR_SSL_PROTOCOL_ERROR`.
+Aviso sobre el certificado: Caddy lo emite para `127.0.0.1` y `localhost`. Conectar con `localhost:8443` o `127.0.0.1:8443` funciona. Cualquier otro hostname (IP remota, alias en `/etc/hosts`) da `ERR_SSL_PROTOCOL_ERROR`.
 
 Recuperar la contraseña de admin:
 
@@ -191,7 +205,7 @@ Las configs viven en `infra/observability/config/` y se renderizan con `envsubst
 
 ### Loki — schema y storage
 
-Schema `v13` + `tsdb` + `period: 24h` son **obligatorios** para que el compactor de retención borre. Configuración relevante:
+Schema `v13` + `tsdb` + `period: 24h` son los valores que necesita el compactor para poder borrar por retención. Si falta cualquiera, el GC no toca los chunks viejos. Configuración relevante:
 
 ```yaml
 schema_config:
@@ -263,9 +277,13 @@ Granularidad scrape `15 s` (override por job no permitido salvo justificación).
 
 ## Dashboards
 
-Grafana arranca con provisioning de filesystem: los JSON viven en `/etc/grafana/dashboards/`, recogidos por un provider con `disableDeletion: true` y `allowUiUpdates: false`. Cambios desde la UI no persisten — el flujo de cambio es JSON en repo → sync al EC2 → restart Grafana.
+Grafana arranca con provisioning de filesystem. Los JSON viven en `/etc/grafana/dashboards/` y los recoge un provider con `disableDeletion: true` y `allowUiUpdates: false`. Los cambios desde la UI no persisten: el flujo es JSON en repo, sync al EC2, restart Grafana.
 
-Stack actual sin exporters Prometheus (la API no expone `/metrics`, no hay `node_exporter` ni `mongodb_exporter`). Los dashboards entregados se apoyan **solo en Loki**, lo cual cubre la mayor parte del valor diagnóstico sin esperar a que aterricen los exporters.
+El stack no tiene exporters de Prometheus todavía (la API no expone `/metrics`, no hay `node_exporter` ni `mongodb_exporter`). Los dashboards se apoyan en Loki, que cubre la mayor parte del valor diagnóstico mientras tanto.
+
+El transport `winston-loki` recibe `format: winston.format.json()` propio, así que cada entry llega a Loki como JSON puro top-level. Las queries de panel usan `| json` directo, sin `| regexp`. Los templates `line_format` referencian campos como `{{.path}}`, `{{.statusCode}}`, `{{.requestId}}` que Loki extrae automáticamente.
+
+La cadena de errores (`error-handler.middleware.ts`) implementa Chain of Responsibility: BodyParse, Zod, Client, Server, Mongo, Fallback. Cada eslabón emite `statusCode` como meta separada del `message`. Eso permite filtros LogQL nativos sobre el campo (`| statusCode =~ "4.."`, `| statusCode != ""`).
 
 ### `API · Logs (Loki)`
 
@@ -295,7 +313,7 @@ Variables `env` y `host` (cascading; `host` se filtra por el `env` actual). Pane
 | Logs en vivo | logs panel | `{job=mongo, env, host}` |
 | Slow ops detectadas | logs panel | `\|~ "(?i)slow operation"` |
 
-Ambos dashboards renderizan en Grafana sin alertas asociadas — se cubren en una fase posterior junto a Alertmanager y reglas de Prometheus.
+Los dashboards renderizan en Grafana sin alertas asociadas. Las alertas entran en una fase posterior junto a Alertmanager y las reglas de Prometheus.
 
 ---
 
@@ -307,11 +325,17 @@ Queries que conviene tener a mano:
 # Todos los logs de la API en producción
 {app="express-clean-backend", env="production"}
 
-# Filtrar por requestId concreto (requestId va en JSON body)
+# Filtrar por requestId concreto (campo extraído por | json)
 {app="express-clean-backend"} | json | requestId="<uuid>"
 
 # Solo warnings/errores
 {app="express-clean-backend", env="staging"} | json | level=~"warn|error"
+
+# Todos los 4xx (filtra por statusCode numérico — el meta emitido por ErrorLogger)
+{app="express-clean-backend", env="production"} | json | statusCode =~ "4.."
+
+# Top 10 paths con más tráfico en 15 m
+topk(10, sum by (path) (count_over_time({app="express-clean-backend", env="production"} | json | path != "" [15m])))
 
 # Logs Mongo: checkpoints WiredTiger último cuarto de hora
 {job="mongo", env="production", component="WTCHKPT"} [15m]
@@ -323,11 +347,12 @@ Queries que conviene tener a mano:
 {app="express-clean-backend"} | json | event="user.login_failed"
 ```
 
-Anti-patrones a evitar:
+Lo que conviene evitar:
 
-- Añadir `requestId`, `userId`, `route`, `ip`, `status` como label estático en el push.
-- Crear datasource adicional en Grafana fuera del provisioning (drift entre filesystem y UI).
-- Usar `{job=~".*"}` o regex amplios sobre `job` en dashboards compartidos — explota cardinality del Loki query frontend.
+- Añadir `requestId`, `userId`, `path`, `ip` o `statusCode` como label estático del push.
+- Mezclar `route` y `path` como nombres para el mismo dato. El adapter usa `path` desde el `RequestContextLoggerDecorator` y desde el Chain de errores.
+- Crear datasources en la UI de Grafana fuera del provisioning. Genera drift entre filesystem y UI.
+- Usar `{job=~".*"}` o regex amplios sobre `job` en dashboards compartidos. Explota la cardinality del query frontend.
 
 ---
 
@@ -346,21 +371,21 @@ Régimen estable medido en Cost Explorer (tag `Module=observability`):
 | DLM snapshots EBS data | ~1.5 |
 | **Total** | **~28** |
 
-Sin NAT GW, sin VPC interface endpoints, sin ALB delante de Grafana. Egress por IGW al precio estándar (mismo-región a S3 es gratuito).
+Sin NAT GW, sin VPC interface endpoints y sin ALB delante de Grafana. El egress sale por IGW al precio estándar, y el tráfico a S3 dentro de la región es gratis.
 
 ---
 
 ## Gaps
 
-Estado documentado de lo que el stack todavía no resuelve y queda como evolución natural:
+Lo que el stack todavía no cubre:
 
-- **Alertmanager + reglas Prometheus** — `HighErrorRate`, `LokiIngestRateHigh`, `MongoDown`. Notificaciones a email/Slack/PagerDuty.
-- **Exporters de métricas** — `prom-client` middleware en la API (HTTP histogram + counters), `mongodb_exporter` en cada Mongo EC2, `node_exporter` en hosts EC2. Hoy Prometheus tiene los scrape jobs declarados pero la mayoría aparecen `DOWN`.
-- **Trazas distribuidas** — OpenTelemetry SDK en la API + Tempo en el stack. Hoy `requestId` cubre correlación intra-API.
-- **OIDC en Grafana** — login con Keycloak (`app-prod`) sustituyendo el admin local.
-- **Migración Promtail → Grafana Alloy** — el proyecto Promtail dejó de publicar binarios standalone. Alloy es el sucesor soportado.
-- **Multi-AZ** — el stack vive en AZ-a. Si el volumen de logs/métricas crece > 20 GB/día, conviene split + replicación cruzada.
-- **FireLens sidecar fluent-bit en ECS** — alternativa más limpia que winston-loki para Fargate (logs vía driver `awsfirelens` en lugar de transport en proceso). Mejora resiliencia ante crashes de la app.
+- Alertmanager + reglas Prometheus para `HighErrorRate`, `LokiIngestRateHigh`, `MongoDown`. Notificaciones a email, Slack o PagerDuty.
+- Exporters de métricas: `prom-client` middleware en la API (HTTP histogram + counters), `mongodb_exporter` en cada Mongo EC2, `node_exporter` en los hosts EC2. Hoy Prometheus tiene los scrape jobs declarados pero la mayoría salen `DOWN`.
+- Trazas distribuidas con OpenTelemetry SDK en la API y Tempo en el stack. Hoy el `requestId` cubre solo la correlación intra-API.
+- OIDC en Grafana con Keycloak (`app-prod`) sustituyendo al admin local.
+- Migración de Promtail a Grafana Alloy. El proyecto Promtail dejó de publicar binarios standalone y Alloy es su sucesor soportado.
+- Multi-AZ. El stack vive en AZ-a. Si el volumen de logs y métricas crece por encima de 20 GB/día, conviene split más replicación cruzada.
+- FireLens sidecar fluent-bit en ECS como alternativa a winston-loki para Fargate. Reenvía logs por driver `awsfirelens` y aguanta mejor un crash de la app.
 
 ---
 

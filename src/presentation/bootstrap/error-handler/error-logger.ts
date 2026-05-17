@@ -1,4 +1,5 @@
 import colors from 'colors';
+import type { Request } from 'express';
 import type { LoggerPort } from '#domain/shared/logger/logger.port';
 import { ClientError, ServerError } from '#domain/shared/errors';
 
@@ -14,54 +15,67 @@ import { ClientError, ServerError } from '#domain/shared/errors';
  * los ignora. Por tanto: pinta en dev, no rompe en prod.
  *
  * Esta clase recibe `LoggerPort` por constructor — cualquier impl funciona.
+ *
+ * @remarks
+ * Strategy interna para correlación: cada método selecciona el logger con
+ * `req.logger ?? this.logger`. Cuando `RequestContextMiddleware` ya inyectó
+ * el `RequestContextLoggerDecorator` en `req.logger`, los logs heredan
+ * automáticamente `requestId`, `method` y `path` del request. Si por algún
+ * motivo `req.logger` no existe (ej. error antes del middleware), cae al
+ * `LoggerPort` base sin crashear.
  */
 export class ErrorLogger {
   public constructor(private readonly logger: LoggerPort) {}
 
-  public client(err: ClientError, requestPath: string): void {
+  public client(err: ClientError, req: Request): void {
+    const log = req.logger ?? this.logger;
     const tag = colors.yellow(`[CLIENT ${err.statusCode}]`);
-    this.logger.warn(`${tag} ${requestPath} → ${err.message}`, {
+    log.warn(`${tag} ${req.path} → ${err.message}`, {
       statusCode: err.statusCode,
-      path: requestPath,
+      path: req.path,
       details: err.details,
     });
   }
 
-  public server(err: ServerError, requestPath: string): void {
+  public server(err: ServerError, req: Request): void {
+    const log = req.logger ?? this.logger;
     const tag = colors.red.bold(`[SERVER ${err.statusCode}]`);
-    this.logger.error(`${tag} ${requestPath} → ${err.message}`, {
+    log.error(`${tag} ${req.path} → ${err.message}`, {
       statusCode: err.statusCode,
-      path: requestPath,
+      path: req.path,
       stack: err.stack,
     });
   }
 
-  public validation(requestPath: string, fields: unknown): void {
+  public validation(req: Request, fields: unknown): void {
+    const log = req.logger ?? this.logger;
     const tag = colors.yellow('[VALIDATION 400]');
-    this.logger.warn(`${tag} ${requestPath}`, {
+    log.warn(`${tag} ${req.path}`, {
       statusCode: 400,
-      path: requestPath,
+      path: req.path,
       fields,
     });
   }
 
-  public mongo(requestPath: string, kind: string, message: string): void {
+  public mongo(req: Request, kind: string, message: string): void {
+    const log = req.logger ?? this.logger;
     const statusCode = kind === 'DUPLICATE 11000' ? 409 : 400;
     const tag = colors.cyan(`[MONGO ${kind}]`);
-    this.logger.warn(`${tag} ${requestPath} → ${message}`, {
+    log.warn(`${tag} ${req.path} → ${message}`, {
       statusCode,
-      path: requestPath,
+      path: req.path,
       kind,
     });
   }
 
-  public unhandled(requestPath: string, err: unknown): void {
+  public unhandled(req: Request, err: unknown): void {
+    const log = req.logger ?? this.logger;
     const tag = colors.magenta.bold('[UNHANDLED 500]');
     const msg = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
-    this.logger.error(`${tag} ${requestPath} → ${msg}`, {
+    log.error(`${tag} ${req.path} → ${msg}`, {
       statusCode: 500,
-      path: requestPath,
+      path: req.path,
       stack,
     });
   }
