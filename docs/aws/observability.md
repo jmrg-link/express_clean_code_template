@@ -133,7 +133,7 @@ Los campos top-level del JSON que la app emite consistentemente:
 | `message` | Winston | siempre |
 | `timestamp` | Winston | siempre |
 | `app`, `env`, `service` | labels Loki | siempre (label) |
-| `requestId`, `method`, `path` | `RequestContextLoggerDecorator` | en todo log emitido vía `req.logger.*` |
+| `requestId`, `method`, `path` | `RequestContextLoggerDecorator` | en todo log emitido vía `req.logger.*`, incluyendo los del Chain de errores |
 | `statusCode` | `ErrorLogger` (todas las ramas del Chain) | en todo log de la cadena de errores (4xx y 5xx) |
 | `fields[]` | `ErrorLogger.validation` | en errores Zod |
 | `kind`, `stack` | `ErrorLogger` | en errores Mongo / unhandled |
@@ -283,7 +283,9 @@ El stack no tiene exporters de Prometheus todavía (la API no expone `/metrics`,
 
 El transport `winston-loki` recibe `format: winston.format.json()` propio, así que cada entry llega a Loki como JSON puro top-level. Las queries de panel usan `| json` directo, sin `| regexp`. Los templates `line_format` referencian campos como `{{.path}}`, `{{.statusCode}}`, `{{.requestId}}` que Loki extrae automáticamente.
 
-La cadena de errores (`error-handler.middleware.ts`) implementa Chain of Responsibility: BodyParse, Zod, Client, Server, Mongo, Fallback. Cada eslabón emite `statusCode` como meta separada del `message`. Eso permite filtros LogQL nativos sobre el campo (`| statusCode =~ "4.."`, `| statusCode != ""`).
+La cadena de errores (`error-handler.middleware.ts`) implementa Chain of Responsibility: BodyParse, Zod, Client, Server, Mongo, Fallback. Cada eslabón emite `statusCode` como meta separada del `message`, lo que permite filtros LogQL nativos sobre el campo (`| statusCode =~ "4.."`, `| statusCode != ""`).
+
+El `ErrorLogger` selecciona su transporte con `req.logger ?? this.logger`. Como `RequestContextMiddleware` se registra antes que cualquier middleware capaz de lanzar al Chain, los errores 4xx y 5xx llegan a Loki con los bindings `requestId`, `method` y `path` heredados del decorator de contexto. Un operador puede pivotar de un único error a la conversación completa del request con un filtro `| requestId="<uuid>"` en LogQL.
 
 ### `API · Logs (Loki)`
 
